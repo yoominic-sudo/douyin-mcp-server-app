@@ -7,26 +7,35 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
-<body class="min-h-screen bg-slate-50" x-data="downloaderApp()" x-init="init()">
-  <main class="mx-auto max-w-3xl px-4 py-6 sm:py-10">
-    <section class="rounded-2xl bg-white p-4 shadow-sm sm:p-6">
-      <h1 class="text-xl font-bold text-slate-900 sm:text-2xl">抖音无水印下载</h1>
-      <p class="mt-1 text-sm text-slate-500">粘贴分享文案或链接，提取视频后可直接播放和下载。</p>
-      <p class="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs leading-5 text-amber-700">
-        免责声明：本工具仅供学习研究与个人备份使用，请确保你对下载内容拥有合法使用权，不得用于侵权传播或商业盗用。请遵守抖音平台规则及相关法律法规，因违规使用产生的责任由使用者自行承担。
-      </p>
+<body class="min-h-screen bg-slate-950 text-slate-100" x-data="downloaderApp()" x-init="init()">
+  <div class="fixed inset-0 -z-10 bg-[radial-gradient(circle_at_20%_20%,rgba(244,63,94,0.25),transparent_35%),radial-gradient(circle_at_80%_0%,rgba(59,130,246,0.22),transparent_30%),linear-gradient(180deg,#020617_0%,#0f172a_100%)]"></div>
 
-      <label class="mt-4 block text-sm font-medium text-slate-700">分享内容</label>
+  <main class="mx-auto max-w-4xl px-4 py-6 sm:py-10">
+    <header class="mb-5 sm:mb-8">
+      <div class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs text-pink-200 backdrop-blur">
+        <span class="inline-block h-2 w-2 rounded-full bg-pink-400"></span>
+        Douyin Toolkit
+      </div>
+      <h1 class="mt-3 text-2xl font-bold tracking-tight text-white sm:text-4xl">抖音无水印下载</h1>
+      <p class="mt-2 max-w-2xl text-sm text-slate-300 sm:text-base">粘贴分享文案或链接，一键提取视频并直接下载。手机端优先，操作更快更直观。</p>
+    </header>
+
+    <section class="rounded-2xl border border-white/10 bg-white/10 p-4 shadow-2xl backdrop-blur-xl sm:p-6">
+      <div class="rounded-xl border border-amber-300/30 bg-amber-100/10 px-3 py-2 text-xs leading-5 text-amber-100">
+        免责声明：本工具仅供学习研究与个人备份使用，请确保你对下载内容拥有合法使用权，不得用于侵权传播或商业盗用。请遵守抖音平台规则及相关法律法规，因违规使用产生的责任由使用者自行承担。
+      </div>
+
+      <label class="mt-4 block text-sm font-medium text-slate-200">分享内容</label>
       <textarea
         x-model="url"
         rows="4"
         placeholder="粘贴抖音分享文案或链接，例如：https://v.douyin.com/xxxxx/"
-        class="mt-2 w-full rounded-xl border border-slate-200 p-3 text-sm outline-none transition focus:border-pink-500 focus:ring-2 focus:ring-pink-100"
+        class="mt-2 w-full rounded-xl border border-white/15 bg-slate-900/70 p-3 text-sm text-slate-100 outline-none transition focus:border-pink-400 focus:ring-2 focus:ring-pink-400/20"
         :disabled="loading"
       ></textarea>
 
-      <label class="mt-3 flex items-start gap-2 rounded-lg bg-slate-100 px-3 py-2 text-xs text-slate-600">
-        <input type="checkbox" x-model="agreed" class="mt-0.5 rounded border-slate-300">
+      <label class="mt-3 flex items-start gap-2 rounded-lg border border-white/10 bg-slate-900/50 px-3 py-2 text-xs text-slate-300">
+        <input type="checkbox" x-model="agreed" class="mt-0.5 rounded border-slate-400 bg-slate-900 text-pink-500">
         <span>我已阅读并同意：仅用于学习研究与个人备份，不用于侵权传播或商业盗用。</span>
       </label>
 
@@ -34,39 +43,42 @@
         <button
           @click="readClipboard"
           :disabled="loading"
-          class="h-11 rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed"
+          class="h-11 rounded-xl border border-white/20 bg-white/5 px-4 text-sm font-semibold text-slate-100 transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-50"
         >读取剪贴板</button>
+
         <button
           @click="extractVideo"
           :disabled="!url || loading || !agreed"
-          class="h-11 rounded-xl bg-pink-600 px-4 text-sm font-semibold text-white transition hover:bg-pink-500 disabled:cursor-not-allowed disabled:bg-slate-300"
+          class="h-11 rounded-xl bg-gradient-to-r from-pink-500 to-rose-500 px-5 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:from-slate-500 disabled:to-slate-500"
         >
           <span x-show="!loading">提取视频</span>
           <span x-show="loading">提取中...</span>
         </button>
+
         <button
           @click="reset"
           :disabled="loading"
-          class="h-11 rounded-xl border border-slate-200 px-4 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed"
+          class="h-11 rounded-xl border border-white/20 bg-white/5 px-4 text-sm font-semibold text-slate-100 transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-50"
         >清空</button>
       </div>
-      <label class="mt-3 inline-flex items-center gap-2 text-xs text-slate-500">
-        <input type="checkbox" x-model="autoReadClipboard" class="rounded border-slate-300">
+
+      <label class="mt-3 inline-flex items-center gap-2 text-xs text-slate-300">
+        <input type="checkbox" x-model="autoReadClipboard" class="rounded border-slate-400 bg-slate-900 text-pink-500">
         自动尝试读取剪贴板（页面重新聚焦时）
       </label>
 
-      <p x-show="error" class="mt-3 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600" x-text="error"></p>
+      <p x-show="error" class="mt-3 rounded-xl border border-red-300/30 bg-red-500/15 px-3 py-2 text-sm text-red-100" x-text="error"></p>
     </section>
 
-    <section x-show="videoInfo" x-transition class="mt-5 rounded-2xl bg-white p-4 shadow-sm sm:p-6">
+    <section x-show="videoInfo" x-transition class="mt-5 rounded-2xl border border-white/10 bg-white/10 p-4 shadow-2xl backdrop-blur-xl sm:p-6">
       <div class="flex items-start justify-between gap-3">
         <div>
-          <h2 class="text-base font-semibold text-slate-900 sm:text-lg" x-text="videoInfo?.title"></h2>
-          <p class="mt-1 text-xs text-slate-500">视频ID：<span x-text="videoInfo?.video_id"></span></p>
+          <h2 class="text-base font-semibold text-white sm:text-lg" x-text="videoInfo?.title"></h2>
+          <p class="mt-1 text-xs text-slate-300">视频ID：<span class="font-mono" x-text="videoInfo?.video_id"></span></p>
         </div>
       </div>
 
-      <div class="mt-4 overflow-hidden rounded-xl bg-black">
+      <div class="mt-4 overflow-hidden rounded-xl border border-white/15 bg-black">
         <video
           x-show="videoProxyUrl"
           :src="videoProxyUrl"
@@ -79,7 +91,7 @@
       <a
         x-show="videoProxyUrl"
         :href="videoProxyUrl"
-        class="mt-4 inline-flex h-11 w-full items-center justify-center rounded-xl bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-500 sm:w-auto"
+        class="mt-4 inline-flex h-11 w-full items-center justify-center rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-4 text-sm font-semibold text-white transition hover:brightness-110 sm:w-auto"
       >下载无水印视频</a>
     </section>
   </main>
@@ -128,7 +140,7 @@
         },
 
         async extractVideo() {
-          if (!this.url || this.loading) return;
+          if (!this.url || this.loading || !this.agreed) return;
           this.loading = true;
           this.error = '';
           this.videoInfo = null;
