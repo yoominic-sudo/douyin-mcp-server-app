@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: douyin-mcp-server
+    env: docker
+    plan: free
+    autoDeploy: true
+    envVars:
+      - key: API_KEY
+        sync: false
