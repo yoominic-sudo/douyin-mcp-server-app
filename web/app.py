@@ -105,6 +105,12 @@ async def index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request, "page_views": page_views})
 
 
+@app.get("/xiaohongshu/chuangye", response_class=HTMLResponse)
+async def xiaohongshu_chuangye(request: Request):
+    """小红书创业倾向测评页面"""
+    return templates.TemplateResponse("xiaohongshu_chuangye.html", {"request": request})
+
+
 @app.get("/api/health")
 async def health_check():
     """健康检查"""

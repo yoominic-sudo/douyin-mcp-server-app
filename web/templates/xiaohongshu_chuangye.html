@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>2026 你是打工型还是创业型</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100" x-data="quizApp()" x-init="init()">
+  <div class="fixed inset-0 -z-10 bg-[radial-gradient(circle_at_10%_0%,rgba(16,185,129,0.25),transparent_40%),radial-gradient(circle_at_90%_10%,rgba(249,115,22,0.2),transparent_35%),radial-gradient(circle_at_50%_100%,rgba(59,130,246,0.22),transparent_45%),linear-gradient(180deg,#020617_0%,#0f172a_100%)]"></div>
+
+  <main class="mx-auto max-w-3xl px-4 py-6 sm:py-10">
+    <header class="mb-6 rounded-3xl border border-white/15 bg-white/10 p-5 backdrop-blur-xl sm:p-7">
+      <div class="inline-flex items-center gap-2 rounded-full border border-emerald-300/40 bg-emerald-300/10 px-3 py-1 text-xs text-emerald-100">
+        <span>2026 Career Map</span>
+      </div>
+      <h1 class="mt-3 text-2xl font-bold tracking-tight text-white sm:text-4xl">2026 你是打工型还是创业型</h1>
+      <p class="mt-2 text-sm leading-6 text-slate-200 sm:text-base">多维度分支测评，不同选项会进入不同路径，给你更贴近现实的 2026 职业建议。</p>
+      <p class="mt-2 text-xs text-slate-300">路径：<span class="font-mono">/xiaohongshu/chuangye</span></p>
+    </header>
+
+    <section x-show="!finished" class="rounded-3xl border border-white/15 bg-white/10 p-5 shadow-2xl backdrop-blur-xl sm:p-7" x-transition>
+      <div class="mb-4 flex items-center justify-between text-xs text-slate-300">
+        <span>进度 <span x-text="answeredCount"></span>/<span x-text="totalStepsEstimate"></span></span>
+        <span x-text="Math.round(progress * 100) + '%'" class="font-semibold text-slate-100"></span>
+      </div>
+      <div class="h-2 overflow-hidden rounded-full bg-white/10">
+        <div class="h-full rounded-full bg-gradient-to-r from-emerald-400 via-cyan-400 to-orange-400 transition-all duration-500" :style="`width:${Math.max(progress * 100, 6)}%`"></div>
+      </div>
+
+      <div class="mt-6">
+        <p class="text-xs uppercase tracking-[0.2em] text-cyan-200" x-text="currentQuestion.group"></p>
+        <h2 class="mt-2 text-lg font-semibold text-white sm:text-xl" x-text="currentQuestion.title"></h2>
+        <p class="mt-1 text-sm text-slate-300" x-text="currentQuestion.desc"></p>
+      </div>
+
+      <div class="mt-5 grid gap-3">
+        <template x-for="opt in currentQuestion.options" :key="opt.id">
+          <button
+            @click="selectOption(opt)"
+            class="w-full rounded-2xl border border-white/15 bg-slate-900/50 px-4 py-3 text-left transition hover:border-cyan-300/60 hover:bg-slate-800/70"
+          >
+            <div class="flex items-start gap-3">
+              <span class="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/30 text-xs" x-text="opt.id"></span>
+              <div>
+                <p class="text-sm font-medium text-slate-100" x-text="opt.text"></p>
+                <p class="mt-1 text-xs text-slate-400" x-show="opt.tip" x-text="opt.tip"></p>
+              </div>
+            </div>
+          </button>
+        </template>
+      </div>
+    </section>
+
+    <section x-show="finished" x-transition class="rounded-3xl border border-white/15 bg-white/10 p-5 shadow-2xl backdrop-blur-xl sm:p-7">
+      <div class="inline-flex items-center gap-2 rounded-full border border-amber-300/40 bg-amber-300/10 px-3 py-1 text-xs text-amber-100">
+        <span>你的 2026 结果</span>
+      </div>
+      <h2 class="mt-3 text-2xl font-bold text-white sm:text-3xl" x-text="result.title"></h2>
+      <p class="mt-2 text-slate-200" x-text="result.summary"></p>
+
+      <div class="mt-5 grid gap-3 sm:grid-cols-2">
+        <template x-for="item in result.cards" :key="item.k">
+          <div class="rounded-2xl border border-white/15 bg-slate-900/55 p-4">
+            <p class="text-xs text-slate-400" x-text="item.k"></p>
+            <p class="mt-1 text-sm font-medium text-slate-100" x-text="item.v"></p>
+          </div>
+        </template>
+      </div>
+
+      <div class="mt-6 rounded-2xl border border-emerald-300/30 bg-emerald-400/10 p-4">
+        <p class="text-sm font-semibold text-emerald-100">2026 行动建议</p>
+        <ul class="mt-2 space-y-2 text-sm text-emerald-50">
+          <template x-for="tip in result.actions" :key="tip">
+            <li x-text="'• ' + tip"></li>
+          </template>
+        </ul>
+      </div>
+
+      <button
+        @click="reset()"
+        class="mt-6 h-11 rounded-xl border border-white/25 bg-white/10 px-4 text-sm font-semibold text-white transition hover:bg-white/20"
+      >重测一次</button>
+    </section>
+  </main>
+
+  <script>
+    function quizApp() {
+      return {
+        totalStepsEstimate: 6,
+        answeredCount: 0,
+        progress: 0,
+        finished: false,
+        result: null,
+        currentQuestionId: 'q1',
+        currentQuestion: null,
+        branch: {
+          risk: 'mid',
+          role: 'mixed',
+          mode: 'balanced'
+        },
+        scores: {
+          risk: 0,
+          execution: 0,
+          stability: 0,
+          growth: 0,
+          autonomy: 0,
+          resilience: 0
+        },
+        questions: {
+          q1: {
+            group: '风险偏好',
+            title: '如果 2026 行业突然波动，你第一反应是？',
+            desc: '选择最接近你真实行为的一项',
+            options: [
+              { id: 'A', text: '先保住当前岗位和现金流', tip: '偏稳健防守', score: { risk: 0, stability: 3 }, set: { risk: 'low' }, next: 'q2_stable' },
+              { id: 'B', text: '先观望，再决定是否转向', score: { risk: 1, stability: 2 }, set: { risk: 'mid' }, next: 'q2_mix' },
+              { id: 'C', text: '快速找新机会，准备切赛道', score: { risk: 3, growth: 2 }, set: { risk: 'high' }, next: 'q2_attack' },
+              { id: 'D', text: '直接试错做自己的项目', score: { risk: 4, autonomy: 2 }, set: { risk: 'high' }, next: 'q2_attack' }
+            ]
+          },
+          q2_stable: {
+            group: '职业选择',
+            title: '你最看重的工作属性是？',
+            desc: '低风险路径',
+            options: [
+              { id: 'A', text: '五险一金+稳定晋升', score: { stability: 4 }, set: { role: 'job' }, next: 'q3_common' },
+              { id: 'B', text: '稳定中带一点创新空间', score: { stability: 3, growth: 1 }, set: { role: 'mixed' }, next: 'q3_common' },
+              { id: 'C', text: '高回报，不怕不稳定', score: { risk: 3, growth: 2 }, set: { role: 'biz' }, next: 'q3_common' }
+            ]
+          },
+          q2_mix: {
+            group: '职业选择',
+            title: '对你来说，理想状态更像哪一种？',
+            desc: '平衡路径',
+            options: [
+              { id: 'A', text: '主业稳定，副业小步试错', score: { stability: 2, autonomy: 1 }, set: { role: 'mixed' }, next: 'q3_common' },
+              { id: 'B', text: '在公司内做核心项目并拿结果', score: { execution: 2, growth: 2 }, set: { role: 'job' }, next: 'q3_common' },
+              { id: 'C', text: '希望逐步过渡到自己做业务', score: { autonomy: 2, growth: 2 }, set: { role: 'biz' }, next: 'q3_common' }
+            ]
+          },
+          q2_attack: {
+            group: '职业选择',
+            title: '如果让你选 2026 的主线，你会选？',
+            desc: '进攻路径',
+            options: [
+              { id: 'A', text: '快速搭建个人产品并验证', score: { autonomy: 3, execution: 2 }, set: { role: 'biz' }, next: 'q3_common' },
+              { id: 'B', text: '加入高增长团队借势起飞', score: { growth: 3, execution: 1 }, set: { role: 'job' }, next: 'q3_common' },
+              { id: 'C', text: '白天主业，夜晚搞项目', score: { resilience: 2, autonomy: 2 }, set: { role: 'mixed' }, next: 'q3_common' }
+            ]
+          },
+          q3_common: {
+            group: '执行力',
+            title: '面对一个新机会，你通常会怎么做？',
+            desc: '看你的行动模式',
+            options: [
+              { id: 'A', text: '收集信息，做完整计划再动', score: { stability: 2, execution: 1 }, next: 'q4_common' },
+              { id: 'B', text: '先做最小测试，边做边改', score: { execution: 3, growth: 1 }, next: 'q4_common' },
+              { id: 'C', text: '先抢窗口，再补流程', score: { risk: 2, execution: 2 }, next: 'q4_common' }
+            ]
+          },
+          q4_common: {
+            group: '抗压能力',
+            title: '连续两周结果不理想，你会？',
+            desc: '看复原速度',
+            options: [
+              { id: 'A', text: '先停下，减少损失', score: { stability: 2, resilience: 1 }, nextBy: { role: { biz: 'q5_biz', mixed: 'q5_mixed', job: 'q5_job' } } },
+              { id: 'B', text: '复盘后调整策略继续做', score: { resilience: 3, execution: 1 }, nextBy: { role: { biz: 'q5_biz', mixed: 'q5_mixed', job: 'q5_job' } } },
+              { id: 'C', text: '拉更多资源，把局面打回来', score: { resilience: 2, autonomy: 2 }, nextBy: { role: { biz: 'q5_biz', mixed: 'q5_mixed', job: 'q5_job' } } }
+            ]
+          },
+          q5_job: {
+            group: '组织协作',
+            title: '你在团队里更像哪类角色？',
+            desc: '职业路径分支',
+            options: [
+              { id: 'A', text: '流程稳定器：把事做稳', score: { stability: 3 }, next: 'q6_final' },
+              { id: 'B', text: '推进器：拉齐资源拿结果', score: { execution: 3, growth: 1 }, next: 'q6_final' },
+              { id: 'C', text: '创新者：不断提出新打法', score: { growth: 3, autonomy: 1 }, next: 'q6_final' }
+            ]
+          },
+          q5_mixed: {
+            group: '双轨发展',
+            title: '主业和副业冲突时你会怎么排优先级？',
+            desc: '混合路径分支',
+            options: [
+              { id: 'A', text: '主业优先，副业保持续', score: { stability: 3, autonomy: 1 }, next: 'q6_final' },
+              { id: 'B', text: '看阶段目标动态切换', score: { execution: 2, resilience: 2 }, next: 'q6_final' },
+              { id: 'C', text: '副业冲刺，主业兜底', score: { autonomy: 3, risk: 2 }, next: 'q6_final' }
+            ]
+          },
+          q5_biz: {
+            group: '创业决策',
+            title: '你更愿意用哪种方式做创业起盘？',
+            desc: '创业路径分支',
+            options: [
+              { id: 'A', text: '先小模型验证，再放大', score: { execution: 3, risk: 1 }, set: { mode: 'lean' }, next: 'q6_final' },
+              { id: 'B', text: '先做品牌声量，再导入产品', score: { growth: 3, autonomy: 2 }, set: { mode: 'brand' }, next: 'q6_final' },
+              { id: 'C', text: '重投放快起量，抢时间窗口', score: { risk: 3, execution: 2 }, set: { mode: 'aggressive' }, next: 'q6_final' }
+            ]
+          },
+          q6_final: {
+            group: '2026目标',
+            title: '2026 年你最想拿到的确定性是什么？',
+            desc: '最后一题',
+            options: [
+              { id: 'A', text: '稳定上涨的年收入', score: { stability: 3, growth: 1 }, next: 'finish' },
+              { id: 'B', text: '可复制的个人能力和作品', score: { growth: 2, autonomy: 2 }, next: 'finish' },
+              { id: 'C', text: '属于自己的现金流系统', score: { autonomy: 3, execution: 2 }, next: 'finish' }
+            ]
+          }
+        },
+
+        init() {
+          this.currentQuestion = this.questions[this.currentQuestionId];
+        },
+
+        selectOption(opt) {
+          this.answeredCount += 1;
+          this.applyScore(opt.score || {});
+          this.applyBranch(opt.set || {});
+
+          let nextQuestionId = opt.next || null;
+          if (!nextQuestionId && opt.nextBy && opt.nextBy.role) {
+            nextQuestionId = opt.nextBy.role[this.branch.role] || opt.nextBy.role.mixed;
+          }
+
+          if (!nextQuestionId || nextQuestionId === 'finish') {
+            this.finish();
+            return;
+          }
+
+          this.currentQuestionId = nextQuestionId;
+          this.currentQuestion = this.questions[this.currentQuestionId];
+          this.progress = Math.min(this.answeredCount / this.totalStepsEstimate, 1);
+        },
+
+        applyScore(delta) {
+          Object.keys(delta).forEach((k) => {
+            this.scores[k] = (this.scores[k] || 0) + delta[k];
+          });
+        },
+
+        applyBranch(nextBranch) {
+          Object.keys(nextBranch).forEach((k) => {
+            this.branch[k] = nextBranch[k];
+          });
+        },
+
+        finish() {
+          this.progress = 1;
+          this.finished = true;
+          this.result = this.generateResult();
+        },
+
+        generateResult() {
+          const totalCore = this.scores.risk + this.scores.autonomy + this.scores.execution + this.scores.stability;
+          const jobPower = this.scores.stability + this.scores.execution + (this.branch.role === 'job' ? 3 : 0);
+          const bizPower = this.scores.autonomy + this.scores.risk + this.scores.growth + (this.branch.role === 'biz' ? 3 : 0);
+
+          let type = 'mixed';
+          if (jobPower - bizPower >= 4) type = 'job';
+          if (bizPower - jobPower >= 4) type = 'biz';
+
+          if (type === 'job') {
+            return {
+              title: '你是 2026 稳健打工进阶型',
+              summary: '你在组织体系里更容易把能力转化成确定性回报。2026 适合走“职位升级 + 关键项目 + 可迁移能力”路线。',
+              cards: [
+                { k: '主引擎', v: '稳定现金流 + 团队资源协同' },
+                { k: '优势', v: '执行靠谱，抗波动能力强' },
+                { k: '风险点', v: '过于保守，错过增量窗口' },
+                { k: '建议策略', v: '主业深耕，保留 20% 精力做试验型副项目' }
+              ],
+              actions: [
+                '先拿下一个可量化的大结果，建立 2026 年职场杠杆。',
+                '每月固定做一次外部机会扫描，避免信息闭环。',
+                '用作品集思维沉淀成果，给未来跳级或跳槽留后手。'
+              ]
+            };
+          }
+
+          if (type === 'biz') {
+            const modeText = this.branch.mode === 'aggressive'
+              ? '进攻型起盘'
+              : this.branch.mode === 'brand'
+                ? '品牌型起盘'
+                : '精益型起盘';
+
+            return {
+              title: '你是 2026 创业增长型',
+              summary: '你有较强自主驱动和机会嗅觉，适合在 2026 做自己的业务。关键是控制节奏，别把试错变成硬扛。',
+              cards: [
+                { k: '主引擎', v: '自主决策 + 快速迭代' },
+                { k: '当前模式', v: modeText },
+                { k: '优势', v: '敢做决策，行动速度快' },
+                { k: '风险点', v: '现金流管理与耐心不足' }
+              ],
+              actions: [
+                '先做可验证的小闭环：产品-成交-复购。',
+                '设置明确止损线，避免单点 All in。',
+                '每周复盘一次投产比，把增长建立在数据上。'
+              ]
+            };
+          }
+
+          return {
+            title: '你是 2026 职场创业双修型',
+            summary: '你既需要稳定底盘，也具备创业潜质。2026 最优解是双轨并行：主业做确定性，副业做增长性。',
+            cards: [
+              { k: '主引擎', v: '双轨结构：稳定 + 增量' },
+              { k: '优势', v: '平衡能力强，进退有空间' },
+              { k: '风险点', v: '精力分散，目标不够聚焦' },
+              { k: '建议策略', v: '季度一个主目标，避免同时开太多战线' }
+            ],
+            actions: [
+              '把副业限定在单一赛道，先跑出第一个可复制模型。',
+              '主业优先拿高含金量项目，形成个人品牌护城河。',
+              '按季度做资源盘点：时间、现金、关系网，动态调整。'
+            ]
+          };
+        },
+
+        reset() {
+          this.answeredCount = 0;
+          this.progress = 0;
+          this.finished = false;
+          this.currentQuestionId = 'q1';
+          this.currentQuestion = this.questions[this.currentQuestionId];
+          this.branch = { risk: 'mid', role: 'mixed', mode: 'balanced' };
+          this.scores = { risk: 0, execution: 0, stability: 0, growth: 0, autonomy: 0, resilience: 0 };
+          this.result = null;
+        }
+      };
+    }
+  </script>
+</body>
+</html>
