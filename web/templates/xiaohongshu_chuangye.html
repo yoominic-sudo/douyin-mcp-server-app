@@ -68,10 +68,17 @@
         <div class="h-full rounded-full bg-gradient-to-r from-sky-400 via-blue-400 to-cyan-300 transition-all duration-500" :style="`width:${Math.max(progress * 100, 6)}%`"></div>
       </div>
 
-      <div class="mt-6">
-        <p class="text-xs uppercase tracking-[0.2em] text-sky-700" x-text="currentQuestion.group"></p>
-        <h2 class="mt-2 text-lg font-semibold text-slate-900 sm:text-xl" x-text="currentQuestion.title"></h2>
-        <p class="mt-1 text-sm text-slate-600" x-text="currentQuestion.desc"></p>
+      <div class="mt-6 flex gap-3">
+        <div class="hidden w-14 shrink-0 flex-col gap-2 sm:flex">
+          <div class="rounded-xl border border-sky-200 bg-sky-50 p-2 text-center text-lg">🧑‍💼</div>
+          <div class="rounded-xl border border-sky-200 bg-sky-50 p-2 text-center text-lg">🚀</div>
+          <div class="rounded-xl border border-sky-200 bg-sky-50 p-2 text-center text-lg">📈</div>
+        </div>
+        <div class="flex-1">
+          <p class="text-xs uppercase tracking-[0.2em] text-sky-700" x-text="currentQuestion.group"></p>
+          <h2 class="mt-2 text-lg font-semibold text-slate-900 sm:text-xl" x-text="currentQuestion.title"></h2>
+          <p class="mt-1 text-sm text-slate-600" x-text="currentQuestion.desc"></p>
+        </div>
       </div>
 
       <div class="mt-5 grid gap-3">
@@ -93,15 +100,31 @@
     </section>
 
     <section x-show="finished" x-transition class="glass-card relative overflow-hidden rounded-3xl p-5 sm:p-7">
-      <svg viewBox="0 0 120 120" class="absolute -right-6 -top-6 h-24 w-24 opacity-20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-        <circle cx="60" cy="60" r="52" stroke="#0081d5" stroke-width="10"/>
-        <path d="M35 64L50 79L84 45" stroke="#0081d5" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-      <div class="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs text-sky-700">
-        <span>你的 2026 结果</span>
+      <div class="inline-flex items-center gap-2 rounded-full border border-pink-200 bg-pink-50 px-3 py-1 text-xs font-semibold text-pink-700">
+        <span>网红测评结果已出炉</span>
       </div>
-      <h2 class="mt-3 text-2xl font-bold text-slate-900 sm:text-3xl" x-text="result.title"></h2>
-      <p class="mt-2 text-slate-700" x-text="result.summary"></p>
+      <div class="mt-4 rounded-2xl bg-gradient-to-r from-sky-600 to-blue-600 p-4 text-white">
+        <p class="text-xs uppercase tracking-wider text-white/80">你的类型</p>
+        <h2 class="mt-1 text-3xl font-extrabold sm:text-4xl" x-text="result.title"></h2>
+        <p class="mt-2 text-sm text-white/90" x-text="result.oneLine"></p>
+      </div>
+
+      <div class="mt-4 grid gap-3 sm:grid-cols-3">
+        <div class="rounded-xl border border-sky-100 bg-sky-50 p-3">
+          <p class="text-xs text-slate-500">打工倾向</p>
+          <p class="mt-1 text-2xl font-bold text-sky-700" x-text="result.jobScore + '%' "></p>
+        </div>
+        <div class="rounded-xl border border-sky-100 bg-sky-50 p-3">
+          <p class="text-xs text-slate-500">创业倾向</p>
+          <p class="mt-1 text-2xl font-bold text-sky-700" x-text="result.bizScore + '%' "></p>
+        </div>
+        <div class="rounded-xl border border-sky-100 bg-sky-50 p-3">
+          <p class="text-xs text-slate-500">建议路线</p>
+          <p class="mt-1 text-base font-bold text-slate-800" x-text="result.route"></p>
+        </div>
+      </div>
+
+      <p class="mt-4 text-sm leading-6 text-slate-700" x-text="result.summary"></p>
 
       <div class="mt-5 grid gap-3 sm:grid-cols-2">
         <template x-for="item in result.cards" :key="item.k">
@@ -113,7 +136,7 @@
       </div>
 
       <div class="mt-6 rounded-2xl border border-sky-200 bg-white p-4">
-        <p class="text-sm font-semibold text-sky-800">2026 行动建议</p>
+        <p class="text-sm font-semibold text-sky-800">下一步直接照着做</p>
         <ul class="mt-2 space-y-2 text-sm text-sky-900">
           <template x-for="tip in result.actions" :key="tip">
             <li x-text="'• ' + tip"></li>
@@ -308,7 +331,11 @@
 
           if (type === 'job') {
             return {
-              title: '你是 2026 稳健打工进阶型',
+              title: '稳健打工进阶型',
+              oneLine: '你是“先稳住，再升级”的选手，适合在平台内快速抬升身价。',
+              route: '主业冲刺型',
+              jobScore: 78,
+              bizScore: 22,
               summary: '你在组织体系里更容易把能力转化成确定性回报。2026 适合走“职位升级 + 关键项目 + 可迁移能力”路线。',
               cards: [
                 { k: '主引擎', v: '稳定现金流 + 团队资源协同' },
@@ -332,7 +359,11 @@
                 : '精益型起盘';
 
             return {
-              title: '你是 2026 创业增长型',
+              title: '创业增长型',
+              oneLine: '你天生偏创业脑，适合自己做盘子，但要控制节奏。',
+              route: '创业主线型',
+              jobScore: 28,
+              bizScore: 72,
               summary: '你有较强自主驱动和机会嗅觉，适合在 2026 做自己的业务。关键是控制节奏，别把试错变成硬扛。',
               cards: [
                 { k: '主引擎', v: '自主决策 + 快速迭代' },
@@ -349,7 +380,11 @@
           }
 
           return {
-            title: '你是 2026 职场创业双修型',
+            title: '职场创业双修型',
+            oneLine: '你最适合“双轨并行”：主业保底，副业做增量。',
+            route: '双轨平衡型',
+            jobScore: 52,
+            bizScore: 48,
             summary: '你既需要稳定底盘，也具备创业潜质。2026 最优解是双轨并行：主业做确定性，副业做增长性。',
             cards: [
               { k: '主引擎', v: '双轨结构：稳定 + 增量' },
