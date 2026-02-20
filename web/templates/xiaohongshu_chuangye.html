@@ -29,19 +29,34 @@
       letter-spacing: 0.01em;
       text-shadow: 0 8px 18px rgba(0, 52, 107, 0.32);
     }
+    .hero-illustration {
+      position: absolute;
+      border-radius: 999px;
+      border: 2px solid rgba(255, 255, 255, 0.45);
+      background: rgba(255, 255, 255, 0.16);
+      backdrop-filter: blur(4px);
+    }
   </style>
 </head>
 <body class="min-h-screen text-white" x-data="quizApp()" x-init="init()">
   <div class="fixed inset-0 -z-10 bg-[radial-gradient(circle_at_50%_18%,rgba(255,255,255,0.16),transparent_38%),linear-gradient(180deg,#0997ef_0%,#007fcd_52%,#0065a8_100%)]"></div>
 
   <main class="mx-auto max-w-3xl px-4 py-6 sm:py-10">
-    <header class="hero-wrap mb-6 rounded-3xl px-6 py-8 sm:px-9 sm:py-10">
-      <div class="hero-title text-center text-white">
+    <header class="hero-wrap relative mb-6 overflow-hidden rounded-3xl px-6 py-8 sm:px-9 sm:py-10">
+      <div class="hero-illustration -left-6 -top-8 h-24 w-24"></div>
+      <div class="hero-illustration right-4 top-4 h-14 w-14"></div>
+      <div class="hero-illustration -bottom-8 right-12 h-28 w-28"></div>
+      <div class="hero-title relative text-center text-white">
         <p class="text-[44px] sm:text-[72px]">2026</p>
         <p class="text-[50px] sm:text-[90px]">打工型</p>
         <p class="text-[50px] sm:text-[90px]">还是创业型</p>
       </div>
       <p class="mt-4 text-center text-sm leading-6 text-white/90 sm:text-base">根据你的风险偏好、执行风格与现金流安全感，给你一条更贴近现实的职业路线。</p>
+      <div class="relative mt-5 flex items-center justify-center gap-3 text-xs text-white/95">
+        <span class="rounded-full border border-white/40 bg-white/15 px-3 py-1">🧭 方向判断</span>
+        <span class="rounded-full border border-white/40 bg-white/15 px-3 py-1">📈 成长路径</span>
+        <span class="rounded-full border border-white/40 bg-white/15 px-3 py-1">💼 职业画像</span>
+      </div>
     </header>
 
     <section x-show="!finished" class="glass-card rounded-3xl p-5 text-slate-900 sm:p-7" x-transition>
@@ -77,7 +92,11 @@
       </div>
     </section>
 
-    <section x-show="finished" x-transition class="glass-card rounded-3xl p-5 sm:p-7">
+    <section x-show="finished" x-transition class="glass-card relative overflow-hidden rounded-3xl p-5 sm:p-7">
+      <svg viewBox="0 0 120 120" class="absolute -right-6 -top-6 h-24 w-24 opacity-20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <circle cx="60" cy="60" r="52" stroke="#0081d5" stroke-width="10"/>
+        <path d="M35 64L50 79L84 45" stroke="#0081d5" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
       <div class="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs text-sky-700">
         <span>你的 2026 结果</span>
       </div>
