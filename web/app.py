@@ -82,6 +82,26 @@ def init_stats_db() -> None:
             )
             """
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS app_settings (
+                app_key TEXT PRIMARY KEY,
+                category TEXT NOT NULL,
+                title TEXT NOT NULL,
+                free_limit INTEGER NOT NULL DEFAULT 1,
+                enabled INTEGER NOT NULL DEFAULT 1
+            )
+            """
+        )
+        conn.executemany(
+            "INSERT OR IGNORE INTO app_settings(app_key, category, title, free_limit, enabled) VALUES(?, ?, ?, ?, 1)",
+            [
+                ("douyin_tool", "实用工具", "抖音无水印下载助手", 1),
+                ("content_idea", "实用工具", "爆款选题生成器", 1),
+                ("chuangye", "人格测评", "2026 打工型还是创业型", 1),
+                ("city_persona", "人格测评", "你的城市人格", 1),
+            ],
+        )
         conn.commit()
 
 
@@ -129,20 +149,35 @@ def _ensure_quiz_row(conn: sqlite3.Connection, device_id: str, app_key: str) -> 
     )
 
 
+def get_app_settings() -> list[dict]:
+    with _get_conn() as conn:
+        rows = conn.execute(
+            "SELECT app_key, category, title, free_limit, enabled FROM app_settings ORDER BY category, app_key"
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def get_app_free_limit(conn: sqlite3.Connection, app_key: str) -> int:
+    row = conn.execute("SELECT free_limit FROM app_settings WHERE app_key = ?", (app_key,)).fetchone()
+    return int(row["free_limit"]) if row else 1
+
+
 def get_quiz_quota(device_id: str, app_key: str = "chuangye") -> dict:
     with _get_conn() as conn:
         _ensure_quiz_row(conn, device_id, app_key)
+        free_limit = get_app_free_limit(conn, app_key)
         row = conn.execute(
             "SELECT free_used, ad_credits FROM app_quota WHERE device_id = ? AND app_key = ?",
             (device_id, app_key),
         ).fetchone()
         free_used = int(row["free_used"]) if row else 0
         ad_credits = int(row["ad_credits"]) if row else 0
-        free_remaining = max(0, 1 - free_used)
+        free_remaining = max(0, free_limit - free_used)
         can_play = (free_remaining + ad_credits) > 0
         return {
             "device_id": device_id,
             "app_key": app_key,
+            "free_limit": free_limit,
             "free_remaining": free_remaining,
             "ad_credits": ad_credits,
             "can_play": can_play,
@@ -207,12 +242,13 @@ def consume_quiz_attempt(device_id: str, app_key: str = "chuangye") -> tuple[boo
             "SELECT free_used, ad_credits FROM app_quota WHERE device_id = ? AND app_key = ?",
             (device_id, app_key),
         ).fetchone()
+        free_limit = get_app_free_limit(conn, app_key)
         free_used = int(row["free_used"]) if row else 0
         ad_credits = int(row["ad_credits"]) if row else 0
 
-        if free_used < 1:
+        if free_used < free_limit:
             conn.execute(
-                "UPDATE app_quota SET free_used = 1, updated_at = ? WHERE device_id = ? AND app_key = ?",
+                "UPDATE app_quota SET free_used = free_used + 1, updated_at = ? WHERE device_id = ? AND app_key = ?",
                 (datetime.now(timezone.utc).isoformat(), device_id, app_key),
             )
             conn.commit()
@@ -272,6 +308,12 @@ class QuizAdVerifyRequest(BaseModel):
     signature: str
 
 
+class AppSettingPatchRequest(BaseModel):
+    app_key: str
+    free_limit: int
+    enabled: bool = True
+
+
 @app.on_event("startup")
 async def startup_event():
     init_stats_db()
@@ -314,6 +356,22 @@ async def stats():
     return {
         "page_views": get_page_views()
     }
+
+
+@app.get("/api/quiz/apps")
+async def quiz_apps():
+    return {"items": get_app_settings()}
+
+
+@app.post("/api/quiz/apps/setting")
+async def quiz_apps_setting(req: AppSettingPatchRequest):
+    with _get_conn() as conn:
+        conn.execute(
+            "UPDATE app_settings SET free_limit = ?, enabled = ? WHERE app_key = ?",
+            (max(0, req.free_limit), 1 if req.enabled else 0, req.app_key.strip()),
+        )
+        conn.commit()
+    return {"success": True}
 
 
 @app.get("/api/quiz/ad-config")

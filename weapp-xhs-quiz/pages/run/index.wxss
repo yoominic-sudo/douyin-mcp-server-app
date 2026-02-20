@@ -3,7 +3,10 @@
 .card { background: rgba(255,255,255,0.97); border-radius: 20rpx; padding: 20rpx; box-shadow: 0 10rpx 30rpx rgba(0,61,120,0.16); }
 .h2 { font-size: 34rpx; color: #0f172a; font-weight: 700; }
 .meta,.desc { color: #475569; font-size: 26rpx; margin-top: 8rpx; }
-.opt { margin-top: 12rpx; border: 1px solid #bae6fd; border-radius: 16rpx; padding: 16rpx; background: #fff; color: #0f172a; }
+.opt,.idea,.output { margin-top: 12rpx; border: 1px solid #bae6fd; border-radius: 16rpx; padding: 16rpx; background: #fff; color: #0f172a; }
 .badge { display: inline-block; padding: 6rpx 14rpx; border-radius: 999rpx; font-size: 22rpx; color: #be185d; background: #fdf2f8; }
 .btn { margin-top: 18rpx; background: linear-gradient(90deg,#0ea5e9,#06b6d4); color: #fff; border-radius: 16rpx; font-size: 30rpx; }
 .hot { background: linear-gradient(90deg,#ec4899,#f97316); }
+.ghost { background: #e2e8f0; color: #0f172a; }
+.input { width: 100%; min-height: 140rpx; margin-top: 12rpx; border: 1px solid #bae6fd; border-radius: 16rpx; padding: 16rpx; background: #fff; color: #0f172a; }
+.ipt { margin-top: 12rpx; height: 78rpx; border: 1px solid #bae6fd; border-radius: 16rpx; padding: 0 16rpx; background: #fff; color: #0f172a; }

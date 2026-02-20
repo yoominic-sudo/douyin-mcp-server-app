@@ -12,13 +12,26 @@ function req(path, method = "GET", data = {}) {
   });
 }
 
-const BANK = {
-  default: [
-    { q: "你更喜欢哪种工作状态？", a: ["稳定流程", "自由尝试", "高速冲刺"] },
-    { q: "面对不确定收入，你的感受是？", a: ["压力很大", "可接受", "很兴奋"] },
-    { q: "你更在意什么？", a: ["稳定现金流", "成长空间", "规模回报"] }
+const QUIZ_BANK = {
+  chuangye: [
+    { q: "行业波动时你第一反应？", a: ["稳住岗位", "观望再动", "直接试错"] },
+    { q: "你更看重什么？", a: ["稳定现金流", "成长空间", "规模化收益"] },
+    { q: "面对失败你会？", a: ["止损", "复盘迭代", "加码冲刺"] }
+  ],
+  city_persona: [
+    { q: "你更喜欢的生活节奏？", a: ["慢一点", "平衡", "快节奏"] },
+    { q: "你对消费压力的接受度？", a: ["低", "中", "高"] },
+    { q: "你更希望城市提供？", a: ["生活感", "平衡机会", "高密度机会"] }
   ]
 };
+
+const IDEA_TEMPLATES = [
+  "{topic}普通人也能做：3步起号法",
+  "我用7天验证了{topic}，结果太真实",
+  "做{topic}一定要避开的3个坑",
+  "{topic}从0到1的内容框架",
+  "2026年{topic}还值不值得做？"
+];
 
 Page({
   data: {
@@ -31,7 +44,11 @@ Page({
     adConfig: { enabled: false, ad_unit_id: "", demo_mode: false },
     idx: 0,
     score: 0,
-    result: ""
+    result: "",
+    toolInput: "",
+    toolOutput: "",
+    ideaTopic: "副业",
+    ideaList: []
   },
 
   deviceId: "",
@@ -61,7 +78,7 @@ Page({
       this.setData({ lockState: true });
       return;
     }
-    this.setData({ started: true, finished: false, lockState: false, quota: data.quota, idx: 0, score: 0, result: "" });
+    this.setData({ started: true, finished: false, lockState: false, quota: data.quota, idx: 0, score: 0, result: "", toolOutput: "", ideaList: [] });
   },
 
   async unlockByAd() {
@@ -75,7 +92,6 @@ Page({
       wx.showToast({ title: ticket.error || "票据失败", icon: "none" });
       return;
     }
-
     const rewarded = wx.createRewardedVideoAd({ adUnitId: adConfig.ad_unit_id });
     rewarded.onClose(async (res) => {
       if (!(res && res.isEnded)) {
@@ -98,22 +114,72 @@ Page({
     rewarded.show().catch(() => rewarded.load().then(() => rewarded.show()));
   },
 
-  answer(e) {
-    const v = Number(e.currentTarget.dataset.v || 0);
-    const idx = this.data.idx + 1;
-    const score = this.data.score + v;
-    if (idx >= BANK.default.length) {
-      let result = "你更偏向平衡路线";
-      if (score <= 4) result = "你更偏向稳健打工路线";
-      if (score >= 7) result = "你更偏向创业增长路线";
-      this.setData({ finished: true, started: false, result, score, idx });
+  onInputTool(e) {
+    this.setData({ toolInput: e.detail.value });
+  },
+
+  onTopicInput(e) {
+    this.setData({ ideaTopic: e.detail.value });
+  },
+
+  async runDouyinTool() {
+    const text = (this.data.toolInput || "").trim();
+    if (!text) {
+      wx.showToast({ title: "先输入分享文案或链接", icon: "none" });
       return;
     }
-    this.setData({ idx, score });
+    const data = await req("/api/video/info", "POST", { url: text, api_key: "" });
+    if (!data.success) {
+      wx.showToast({ title: data.error || "解析失败", icon: "none" });
+      return;
+    }
+    this.setData({ toolOutput: `${data.title}\n${data.download_url}` });
+  },
+
+  genIdeas() {
+    const topic = (this.data.ideaTopic || "副业").trim();
+    const list = IDEA_TEMPLATES.map((t) => t.replace("{topic}", topic));
+    this.setData({ ideaList: list });
+  },
+
+  answer(e) {
+    const { appKey, idx } = this.data;
+    const bank = QUIZ_BANK[appKey] || QUIZ_BANK.chuangye;
+    const v = Number(e.currentTarget.dataset.v || 0);
+    const nextIdx = idx + 1;
+    const score = this.data.score + v;
+    if (nextIdx >= bank.length) {
+      this.finishQuiz(score);
+      return;
+    }
+    this.setData({ idx: nextIdx, score });
+  },
+
+  finishQuiz(score) {
+    const { appKey } = this.data;
+    let result = "你更偏向平衡路线";
+    if (appKey === "chuangye") {
+      if (score <= 4) result = "稳健打工进阶型";
+      else if (score >= 7) result = "创业增长型";
+      else result = "职场创业双修型";
+    } else {
+      if (score <= 4) result = "烟火生活型城市人格";
+      else if (score >= 7) result = "高机会密度型城市人格";
+      else result = "平衡成长型城市人格";
+    }
+    this.setData({ finished: true, started: false, result, score });
+  },
+
+  onShareAppMessage() {
+    const { title, result } = this.data;
+    if (result) {
+      return { title: `${title}：我测出「${result}」`, path: "/pages/index/index" };
+    }
+    return { title: "来测测你的职业/城市人格", path: "/pages/index/index" };
   },
 
   async resetRun() {
-    this.setData({ started: false, finished: false, idx: 0, score: 0, result: "" });
+    this.setData({ started: false, finished: false, idx: 0, score: 0, result: "", toolOutput: "", ideaList: [] });
     await this.refreshStatus();
   }
 });

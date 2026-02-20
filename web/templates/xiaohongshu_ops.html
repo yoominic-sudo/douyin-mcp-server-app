@@ -41,6 +41,26 @@
     </section>
 
     <section class="mt-6 rounded-3xl border border-white/15 bg-white/10 p-5 backdrop-blur-xl">
+      <h2 class="text-lg font-semibold">应用免费次数配置</h2>
+      <div class="mt-3 grid gap-3">
+        <template x-for="a in apps" :key="a.app_key">
+          <div class="rounded-2xl border border-white/15 bg-slate-900/50 p-4">
+            <div class="flex items-center justify-between gap-3">
+              <div>
+                <p class="font-semibold" x-text="a.title"></p>
+                <p class="text-xs text-slate-400" x-text="a.app_key + ' · ' + a.category"></p>
+              </div>
+              <div class="flex items-center gap-2">
+                <input type="number" min="0" x-model.number="a.free_limit" class="h-9 w-20 rounded-lg border border-white/20 bg-slate-900/70 px-2 text-sm">
+                <button @click="saveAppSetting(a)" class="h-9 rounded-lg border border-cyan-300/50 bg-cyan-400/20 px-3 text-xs">保存</button>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+    </section>
+
+    <section class="mt-6 rounded-3xl border border-white/15 bg-white/10 p-5 backdrop-blur-xl">
       <h2 class="text-lg font-semibold">发布队列</h2>
       <div class="mt-3 grid gap-3">
         <template x-for="item in posts" :key="item.id">
@@ -67,17 +87,20 @@
         appBase,
         status: {},
         posts: [],
+        apps: [],
         form: { title: '', content: '', cover_url: '' },
         async init() {
           await this.refresh();
         },
         async refresh() {
-          const [s, p] = await Promise.all([
+          const [s, p, a] = await Promise.all([
             fetch(`${this.appBase}/api/xhs/status`).then(r => r.json()),
-            fetch(`${this.appBase}/api/xhs/posts`).then(r => r.json())
+            fetch(`${this.appBase}/api/xhs/posts`).then(r => r.json()),
+            fetch(`${this.appBase}/api/quiz/apps`).then(r => r.json())
           ]);
           this.status = s;
           this.posts = p.items || [];
+          this.apps = a.items || [];
         },
         async createPost() {
           if (!this.form.title || !this.form.content) return;
@@ -93,6 +116,14 @@
           const res = await fetch(`${this.appBase}/api/xhs/publish/${id}`, { method: 'POST' });
           const data = await res.json();
           if (!data.success && data.error) alert(data.error);
+          await this.refresh();
+        },
+        async saveAppSetting(a) {
+          await fetch(`${this.appBase}/api/quiz/apps/setting`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ app_key: a.app_key, free_limit: Number(a.free_limit || 0), enabled: !!a.enabled })
+          });
           await this.refresh();
         }
       };

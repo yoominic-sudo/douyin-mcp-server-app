@@ -2,7 +2,7 @@
   <view class="head">{{title}}</view>
 
   <view wx:if="{{!started && !finished && !lockState}}" class="card">
-    <view class="h2">首次免费，后续看广告</view>
+    <view class="h2">本应用可用次数</view>
     <view class="desc">免费剩余 {{quota.free_remaining}} 次，广告 {{quota.ad_credits}} 次</view>
     <button class="btn" bindtap="startRun">开始</button>
   </view>
@@ -12,18 +12,34 @@
     <button class="btn hot" bindtap="unlockByAd">看广告解锁</button>
   </view>
 
-  <view wx:if="{{started && !finished}}" class="card">
+  <view wx:if="{{started && !finished && (appKey=='chuangye' || appKey=='city_persona')}}" class="card">
     <view class="meta">题目 {{idx+1}}/3</view>
-    <view class="h2">{{(idx==0?'你更喜欢哪种工作状态？':(idx==1?'面对不确定收入，你的感受是？':'你更在意什么？'))}}</view>
-    <view class="opt" data-v="1" bindtap="answer">A. {{(idx==0?'稳定流程':(idx==1?'压力很大':'稳定现金流'))}}</view>
-    <view class="opt" data-v="2" bindtap="answer">B. {{(idx==0?'自由尝试':(idx==1?'可接受':'成长空间'))}}</view>
-    <view class="opt" data-v="3" bindtap="answer">C. {{(idx==0?'高速冲刺':(idx==1?'很兴奋':'规模回报'))}}</view>
+    <view class="h2" wx:if="{{appKey=='chuangye'}}">{{idx==0?'行业波动时你第一反应？':(idx==1?'你更看重什么？':'面对失败你会？')}}</view>
+    <view class="h2" wx:if="{{appKey=='city_persona'}}">{{idx==0?'你更喜欢的生活节奏？':(idx==1?'你对消费压力的接受度？':'你更希望城市提供？')}}</view>
+    <view class="opt" data-v="1" bindtap="answer">A. {{appKey=='chuangye'?(idx==0?'稳住岗位':(idx==1?'稳定现金流':'止损')):(idx==0?'慢一点':(idx==1?'低':'生活感'))}}</view>
+    <view class="opt" data-v="2" bindtap="answer">B. {{appKey=='chuangye'?(idx==0?'观望再动':(idx==1?'成长空间':'复盘迭代')):(idx==0?'平衡':(idx==1?'中':'平衡机会'))}}</view>
+    <view class="opt" data-v="3" bindtap="answer">C. {{appKey=='chuangye'?(idx==0?'直接试错':(idx==1?'规模化收益':'加码冲刺')):(idx==0?'快节奏':(idx==1?'高':'高密度机会'))}}</view>
+  </view>
+
+  <view wx:if="{{started && !finished && appKey=='douyin_tool'}}" class="card">
+    <view class="h2">抖音无水印解析</view>
+    <textarea class="input" placeholder="粘贴抖音分享文案或链接" bindinput="onInputTool" value="{{toolInput}}" />
+    <button class="btn" bindtap="runDouyinTool">解析</button>
+    <view class="output" wx:if="{{toolOutput}}">{{toolOutput}}</view>
+  </view>
+
+  <view wx:if="{{started && !finished && appKey=='content_idea'}}" class="card">
+    <view class="h2">爆款选题生成器</view>
+    <input class="ipt" placeholder="输入主题，如 副业/测评/恋爱" bindinput="onTopicInput" value="{{ideaTopic}}" />
+    <button class="btn" bindtap="genIdeas">生成选题</button>
+    <view class="idea" wx:for="{{ideaList}}" wx:key="*this">• {{item}}</view>
   </view>
 
   <view wx:if="{{finished}}" class="card">
     <view class="badge">结果</view>
     <view class="h2">{{result}}</view>
     <view class="desc">分值：{{score}}</view>
-    <button class="btn" bindtap="resetRun">再测一次</button>
+    <button class="btn" open-type="share">分享结果</button>
+    <button class="btn ghost" bindtap="resetRun">再测一次</button>
   </view>
 </view>
