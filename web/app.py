@@ -144,6 +144,7 @@ async def xiaohongshu_chuangye(request: Request):
 
 
 @app.get("/xiaohongshu/ops", response_class=HTMLResponse)
+@app.get("/ops", response_class=HTMLResponse)
 async def xiaohongshu_ops(request: Request):
     """小红书运营台"""
     return templates.TemplateResponse("xiaohongshu_ops.html", {"request": request})

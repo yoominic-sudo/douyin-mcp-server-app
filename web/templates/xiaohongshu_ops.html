@@ -62,7 +62,9 @@
 
   <script>
     function opsApp() {
+      const appBase = window.location.pathname.startsWith('/xiaohongshu') ? '/xiaohongshu' : '';
       return {
+        appBase,
         status: {},
         posts: [],
         form: { title: '', content: '', cover_url: '' },
@@ -71,15 +73,15 @@
         },
         async refresh() {
           const [s, p] = await Promise.all([
-            fetch('/api/xhs/status').then(r => r.json()),
-            fetch('/api/xhs/posts').then(r => r.json())
+            fetch(`${this.appBase}/api/xhs/status`).then(r => r.json()),
+            fetch(`${this.appBase}/api/xhs/posts`).then(r => r.json())
           ]);
           this.status = s;
           this.posts = p.items || [];
         },
         async createPost() {
           if (!this.form.title || !this.form.content) return;
-          await fetch('/api/xhs/posts', {
+          await fetch(`${this.appBase}/api/xhs/posts`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(this.form)
@@ -88,7 +90,7 @@
           await this.refresh();
         },
         async publish(id) {
-          const res = await fetch(`/api/xhs/publish/${id}`, { method: 'POST' });
+          const res = await fetch(`${this.appBase}/api/xhs/publish/${id}`, { method: 'POST' });
           const data = await res.json();
           if (!data.success && data.error) alert(data.error);
           await this.refresh();
