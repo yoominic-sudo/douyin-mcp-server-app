@@ -170,8 +170,10 @@
   <script>
     function quizApp() {
       const appBase = window.location.pathname.startsWith('/xiaohongshu') ? '/xiaohongshu' : '';
+      const appKey = 'chuangye';
       return {
         appBase,
+        appKey,
         totalStepsEstimate: 6,
         answeredCount: 0,
         progress: 0,
@@ -312,7 +314,7 @@
         },
 
         async refreshQuota() {
-          const res = await fetch(`${this.appBase}/api/quiz/quota/${this.deviceId}`);
+          const res = await fetch(`${this.appBase}/api/quiz/quota/${this.appKey}/${this.deviceId}`);
           this.quota = await res.json();
         },
 
@@ -320,7 +322,7 @@
           const res = await fetch(`${this.appBase}/api/quiz/consume`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ device_id: this.deviceId })
+            body: JSON.stringify({ device_id: this.deviceId, app_key: this.appKey })
           });
           const data = await res.json();
           this.quota = data.quota || this.quota;
@@ -342,7 +344,7 @@
           const ticketRes = await fetch(`${this.appBase}/api/quiz/ad-ticket`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ device_id: this.deviceId })
+            body: JSON.stringify({ device_id: this.deviceId, app_key: this.appKey })
           });
           const ticket = await ticketRes.json();
           if (!ticket.success) {
@@ -371,6 +373,7 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               device_id: this.deviceId,
+              app_key: this.appKey,
               ticket_id: ticket.ticket_id,
               signature: ticket.signature
             })

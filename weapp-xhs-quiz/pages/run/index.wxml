@@ -1,0 +1,29 @@
+<view class="page">
+  <view class="head">{{title}}</view>
+
+  <view wx:if="{{!started && !finished && !lockState}}" class="card">
+    <view class="h2">首次免费，后续看广告</view>
+    <view class="desc">免费剩余 {{quota.free_remaining}} 次，广告 {{quota.ad_credits}} 次</view>
+    <button class="btn" bindtap="startRun">开始</button>
+  </view>
+
+  <view wx:if="{{lockState && !started && !finished}}" class="card">
+    <view class="h2">次数已用完</view>
+    <button class="btn hot" bindtap="unlockByAd">看广告解锁</button>
+  </view>
+
+  <view wx:if="{{started && !finished}}" class="card">
+    <view class="meta">题目 {{idx+1}}/3</view>
+    <view class="h2">{{(idx==0?'你更喜欢哪种工作状态？':(idx==1?'面对不确定收入，你的感受是？':'你更在意什么？'))}}</view>
+    <view class="opt" data-v="1" bindtap="answer">A. {{(idx==0?'稳定流程':(idx==1?'压力很大':'稳定现金流'))}}</view>
+    <view class="opt" data-v="2" bindtap="answer">B. {{(idx==0?'自由尝试':(idx==1?'可接受':'成长空间'))}}</view>
+    <view class="opt" data-v="3" bindtap="answer">C. {{(idx==0?'高速冲刺':(idx==1?'很兴奋':'规模回报'))}}</view>
+  </view>
+
+  <view wx:if="{{finished}}" class="card">
+    <view class="badge">结果</view>
+    <view class="h2">{{result}}</view>
+    <view class="desc">分值：{{score}}</view>
+    <button class="btn" bindtap="resetRun">再测一次</button>
+  </view>
+</view>

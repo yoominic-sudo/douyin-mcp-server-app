@@ -1,9 +1,10 @@
 {
   "pages": [
-    "pages/quiz/index"
+    "pages/index/index",
+    "pages/run/index"
   ],
   "window": {
-    "navigationBarTitleText": "2026 职业测评",
+    "navigationBarTitleText": "一一工具箱",
     "navigationBarBackgroundColor": "#0081D5",
     "navigationBarTextStyle": "white",
     "backgroundColor": "#f2f7ff"

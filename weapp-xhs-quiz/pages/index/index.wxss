@@ -1,0 +1,11 @@
+.page { padding: 24rpx; }
+.hero { color: #fff; padding: 16rpx 6rpx 20rpx; }
+.hero-title { font-size: 66rpx; font-weight: 900; line-height: 1; }
+.hero-sub { margin-top: 8rpx; font-size: 26rpx; opacity: 0.95; }
+.section-title { margin: 18rpx 0 10rpx; color: #fff; font-size: 30rpx; font-weight: 700; }
+.grid { display: flex; flex-direction: column; gap: 14rpx; }
+.card { background: rgba(255,255,255,0.97); border-radius: 20rpx; padding: 18rpx; box-shadow: 0 10rpx 30rpx rgba(0,61,120,0.16); }
+.icon { font-size: 40rpx; }
+.title { margin-top: 4rpx; color: #0f172a; font-size: 32rpx; font-weight: 700; }
+.desc { margin-top: 6rpx; color: #475569; font-size: 26rpx; }
+.quota { margin-top: 8rpx; color: #0369a1; font-size: 24rpx; }

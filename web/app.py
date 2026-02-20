@@ -60,11 +60,13 @@ def init_stats_db() -> None:
         )
         conn.execute(
             """
-            CREATE TABLE IF NOT EXISTS quiz_quota (
-                device_id TEXT PRIMARY KEY,
+            CREATE TABLE IF NOT EXISTS app_quota (
+                device_id TEXT NOT NULL,
+                app_key TEXT NOT NULL,
                 free_used INTEGER NOT NULL DEFAULT 0,
                 ad_credits INTEGER NOT NULL DEFAULT 0,
-                updated_at TEXT NOT NULL
+                updated_at TEXT NOT NULL,
+                PRIMARY KEY (device_id, app_key)
             )
             """
         )
@@ -73,6 +75,7 @@ def init_stats_db() -> None:
             CREATE TABLE IF NOT EXISTS ad_tickets (
                 ticket_id TEXT PRIMARY KEY,
                 device_id TEXT NOT NULL,
+                app_key TEXT NOT NULL,
                 signature TEXT NOT NULL,
                 used INTEGER NOT NULL DEFAULT 0,
                 created_at TEXT NOT NULL
@@ -116,22 +119,22 @@ def xhs_cookie_configured() -> bool:
     return "XHS_COOKIE=" in raw and len(raw.split("XHS_COOKIE=", 1)[1].strip()) > 20
 
 
-def _ensure_quiz_row(conn: sqlite3.Connection, device_id: str) -> None:
+def _ensure_quiz_row(conn: sqlite3.Connection, device_id: str, app_key: str) -> None:
     conn.execute(
         """
-        INSERT OR IGNORE INTO quiz_quota(device_id, free_used, ad_credits, updated_at)
-        VALUES(?, 0, 0, ?)
+        INSERT OR IGNORE INTO app_quota(device_id, app_key, free_used, ad_credits, updated_at)
+        VALUES(?, ?, 0, 0, ?)
         """,
-        (device_id, datetime.now(timezone.utc).isoformat()),
+        (device_id, app_key, datetime.now(timezone.utc).isoformat()),
     )
 
 
-def get_quiz_quota(device_id: str) -> dict:
+def get_quiz_quota(device_id: str, app_key: str = "chuangye") -> dict:
     with _get_conn() as conn:
-        _ensure_quiz_row(conn, device_id)
+        _ensure_quiz_row(conn, device_id, app_key)
         row = conn.execute(
-            "SELECT free_used, ad_credits FROM quiz_quota WHERE device_id = ?",
-            (device_id,),
+            "SELECT free_used, ad_credits FROM app_quota WHERE device_id = ? AND app_key = ?",
+            (device_id, app_key),
         ).fetchone()
         free_used = int(row["free_used"]) if row else 0
         ad_credits = int(row["ad_credits"]) if row else 0
@@ -139,55 +142,56 @@ def get_quiz_quota(device_id: str) -> dict:
         can_play = (free_remaining + ad_credits) > 0
         return {
             "device_id": device_id,
+            "app_key": app_key,
             "free_remaining": free_remaining,
             "ad_credits": ad_credits,
             "can_play": can_play,
         }
 
 
-def unlock_quiz_by_ad(device_id: str) -> dict:
+def unlock_quiz_by_ad(device_id: str, app_key: str = "chuangye") -> dict:
     with _get_conn() as conn:
-        _ensure_quiz_row(conn, device_id)
+        _ensure_quiz_row(conn, device_id, app_key)
         conn.execute(
-            "UPDATE quiz_quota SET ad_credits = ad_credits + 1, updated_at = ? WHERE device_id = ?",
-            (datetime.now(timezone.utc).isoformat(), device_id),
+            "UPDATE app_quota SET ad_credits = ad_credits + 1, updated_at = ? WHERE device_id = ? AND app_key = ?",
+            (datetime.now(timezone.utc).isoformat(), device_id, app_key),
         )
         conn.commit()
-    return get_quiz_quota(device_id)
+    return get_quiz_quota(device_id, app_key)
 
 
 def _ad_unlock_secret() -> str:
     return os.getenv("QUIZ_AD_UNLOCK_SECRET", "")
 
 
-def _sign_ad_ticket(device_id: str, ticket_id: str) -> str:
+def _sign_ad_ticket(device_id: str, app_key: str, ticket_id: str) -> str:
     secret = _ad_unlock_secret().encode("utf-8")
-    payload = f"{device_id}:{ticket_id}".encode("utf-8")
+    payload = f"{device_id}:{app_key}:{ticket_id}".encode("utf-8")
     return hmac.new(secret, payload, hashlib.sha256).hexdigest()
 
 
-def create_ad_ticket(device_id: str) -> dict:
+def create_ad_ticket(device_id: str, app_key: str = "chuangye") -> dict:
     if not _ad_unlock_secret():
         raise HTTPException(status_code=400, detail="QUIZ_AD_UNLOCK_SECRET 未配置")
     ticket_id = str(uuid4())
-    signature = _sign_ad_ticket(device_id, ticket_id)
+    signature = _sign_ad_ticket(device_id, app_key, ticket_id)
     with _get_conn() as conn:
         conn.execute(
-            "INSERT INTO ad_tickets(ticket_id, device_id, signature, used, created_at) VALUES(?, ?, ?, 0, ?)",
-            (ticket_id, device_id, signature, datetime.now(timezone.utc).isoformat()),
+            "INSERT INTO ad_tickets(ticket_id, device_id, app_key, signature, used, created_at) VALUES(?, ?, ?, ?, 0, ?)",
+            (ticket_id, device_id, app_key, signature, datetime.now(timezone.utc).isoformat()),
         )
         conn.commit()
     return {"ticket_id": ticket_id, "signature": signature}
 
 
-def verify_and_consume_ad_ticket(device_id: str, ticket_id: str, signature: str) -> bool:
-    expected = _sign_ad_ticket(device_id, ticket_id)
+def verify_and_consume_ad_ticket(device_id: str, app_key: str, ticket_id: str, signature: str) -> bool:
+    expected = _sign_ad_ticket(device_id, app_key, ticket_id)
     if not hmac.compare_digest(expected, signature):
         return False
     with _get_conn() as conn:
         row = conn.execute(
-            "SELECT used FROM ad_tickets WHERE ticket_id = ? AND device_id = ?",
-            (ticket_id, device_id),
+            "SELECT used FROM ad_tickets WHERE ticket_id = ? AND device_id = ? AND app_key = ?",
+            (ticket_id, device_id, app_key),
         ).fetchone()
         if not row or int(row["used"]) == 1:
             return False
@@ -196,33 +200,33 @@ def verify_and_consume_ad_ticket(device_id: str, ticket_id: str, signature: str)
     return True
 
 
-def consume_quiz_attempt(device_id: str) -> tuple[bool, dict]:
+def consume_quiz_attempt(device_id: str, app_key: str = "chuangye") -> tuple[bool, dict]:
     with _get_conn() as conn:
-        _ensure_quiz_row(conn, device_id)
+        _ensure_quiz_row(conn, device_id, app_key)
         row = conn.execute(
-            "SELECT free_used, ad_credits FROM quiz_quota WHERE device_id = ?",
-            (device_id,),
+            "SELECT free_used, ad_credits FROM app_quota WHERE device_id = ? AND app_key = ?",
+            (device_id, app_key),
         ).fetchone()
         free_used = int(row["free_used"]) if row else 0
         ad_credits = int(row["ad_credits"]) if row else 0
 
         if free_used < 1:
             conn.execute(
-                "UPDATE quiz_quota SET free_used = 1, updated_at = ? WHERE device_id = ?",
-                (datetime.now(timezone.utc).isoformat(), device_id),
+                "UPDATE app_quota SET free_used = 1, updated_at = ? WHERE device_id = ? AND app_key = ?",
+                (datetime.now(timezone.utc).isoformat(), device_id, app_key),
             )
             conn.commit()
-            return True, get_quiz_quota(device_id)
+            return True, get_quiz_quota(device_id, app_key)
 
         if ad_credits > 0:
             conn.execute(
-                "UPDATE quiz_quota SET ad_credits = ad_credits - 1, updated_at = ? WHERE device_id = ?",
-                (datetime.now(timezone.utc).isoformat(), device_id),
+                "UPDATE app_quota SET ad_credits = ad_credits - 1, updated_at = ? WHERE device_id = ? AND app_key = ?",
+                (datetime.now(timezone.utc).isoformat(), device_id, app_key),
             )
             conn.commit()
-            return True, get_quiz_quota(device_id)
+            return True, get_quiz_quota(device_id, app_key)
 
-    return False, get_quiz_quota(device_id)
+    return False, get_quiz_quota(device_id, app_key)
 
 
 class VideoRequest(BaseModel):
@@ -258,10 +262,12 @@ class XHSPostRequest(BaseModel):
 
 class QuizDeviceRequest(BaseModel):
     device_id: str
+    app_key: str = "chuangye"
 
 
 class QuizAdVerifyRequest(BaseModel):
     device_id: str
+    app_key: str = "chuangye"
     ticket_id: str
     signature: str
 
@@ -319,34 +325,34 @@ async def quiz_ad_config():
     }
 
 
-@app.get("/api/quiz/quota/{device_id}")
-async def quiz_quota(device_id: str):
-    return get_quiz_quota(device_id)
+@app.get("/api/quiz/quota/{app_key}/{device_id}")
+async def quiz_quota(app_key: str, device_id: str):
+    return get_quiz_quota(device_id, app_key)
 
 
 @app.post("/api/quiz/ad-ticket")
 async def quiz_ad_ticket(req: QuizDeviceRequest):
-    ticket = create_ad_ticket(req.device_id.strip())
+    ticket = create_ad_ticket(req.device_id.strip(), req.app_key.strip())
     return {"success": True, **ticket}
 
 
 @app.post("/api/quiz/unlock-ad")
 async def quiz_unlock_ad(req: QuizDeviceRequest):
-    return unlock_quiz_by_ad(req.device_id.strip())
+    return unlock_quiz_by_ad(req.device_id.strip(), req.app_key.strip())
 
 
 @app.post("/api/quiz/unlock-ad-verify")
 async def quiz_unlock_ad_verify(req: QuizAdVerifyRequest):
-    ok = verify_and_consume_ad_ticket(req.device_id.strip(), req.ticket_id.strip(), req.signature.strip())
+    ok = verify_and_consume_ad_ticket(req.device_id.strip(), req.app_key.strip(), req.ticket_id.strip(), req.signature.strip())
     if not ok:
         return {"success": False, "error": "广告票据校验失败"}
-    quota = unlock_quiz_by_ad(req.device_id.strip())
+    quota = unlock_quiz_by_ad(req.device_id.strip(), req.app_key.strip())
     return {"success": True, "quota": quota}
 
 
 @app.post("/api/quiz/consume")
 async def quiz_consume(req: QuizDeviceRequest):
-    consumed, quota = consume_quiz_attempt(req.device_id.strip())
+    consumed, quota = consume_quiz_attempt(req.device_id.strip(), req.app_key.strip())
     return {"success": consumed, "quota": quota}
 
 
