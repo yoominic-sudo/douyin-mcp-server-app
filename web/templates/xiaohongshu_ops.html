@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>小红书运营台</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100" x-data="opsApp()" x-init="init()">
+  <div class="fixed inset-0 -z-10 bg-[radial-gradient(circle_at_20%_0%,rgba(14,165,233,0.22),transparent_35%),radial-gradient(circle_at_90%_10%,rgba(244,114,182,0.2),transparent_30%),linear-gradient(180deg,#020617_0%,#0f172a_100%)]"></div>
+  <main class="mx-auto max-w-5xl px-4 py-8">
+    <header class="mb-6 rounded-3xl border border-white/15 bg-white/10 p-6 backdrop-blur-xl">
+      <h1 class="text-3xl font-bold">小红书运营台</h1>
+      <p class="mt-2 text-sm text-slate-300">自动发布 MVP（已接入 Cookie 检查）+ 半自动评论回复（下一步）。</p>
+    </header>
+
+    <section class="grid gap-4 sm:grid-cols-3">
+      <div class="rounded-2xl border border-white/15 bg-white/10 p-4">
+        <p class="text-xs text-slate-400">Cookie 状态</p>
+        <p class="mt-1 text-xl font-bold" :class="status.cookie_configured ? 'text-emerald-300' : 'text-rose-300'" x-text="status.cookie_configured ? '已配置' : '未配置'"></p>
+      </div>
+      <div class="rounded-2xl border border-white/15 bg-white/10 p-4">
+        <p class="text-xs text-slate-400">待发布</p>
+        <p class="mt-1 text-xl font-bold text-sky-300" x-text="status.queued || 0"></p>
+      </div>
+      <div class="rounded-2xl border border-white/15 bg-white/10 p-4">
+        <p class="text-xs text-slate-400">已发布</p>
+        <p class="mt-1 text-xl font-bold text-emerald-300" x-text="status.published || 0"></p>
+      </div>
+    </section>
+
+    <section class="mt-6 rounded-3xl border border-white/15 bg-white/10 p-5 backdrop-blur-xl">
+      <h2 class="text-lg font-semibold">新建稿件</h2>
+      <div class="mt-3 grid gap-3">
+        <input x-model="form.title" placeholder="标题" class="h-11 rounded-xl border border-white/20 bg-slate-900/60 px-3 text-sm outline-none focus:border-sky-300">
+        <textarea x-model="form.content" rows="4" placeholder="正文" class="rounded-xl border border-white/20 bg-slate-900/60 p-3 text-sm outline-none focus:border-sky-300"></textarea>
+        <input x-model="form.cover_url" placeholder="封面图 URL（可选）" class="h-11 rounded-xl border border-white/20 bg-slate-900/60 px-3 text-sm outline-none focus:border-sky-300">
+        <button @click="createPost" class="h-11 rounded-xl bg-gradient-to-r from-sky-500 to-cyan-500 text-sm font-semibold">加入待发布队列</button>
+      </div>
+    </section>
+
+    <section class="mt-6 rounded-3xl border border-white/15 bg-white/10 p-5 backdrop-blur-xl">
+      <h2 class="text-lg font-semibold">发布队列</h2>
+      <div class="mt-3 grid gap-3">
+        <template x-for="item in posts" :key="item.id">
+          <div class="rounded-2xl border border-white/15 bg-slate-900/50 p-4">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <p class="font-semibold" x-text="item.title"></p>
+                <p class="mt-1 line-clamp-2 text-sm text-slate-300" x-text="item.content"></p>
+                <p class="mt-2 text-xs text-slate-400">状态：<span x-text="item.status"></span></p>
+              </div>
+              <button x-show="item.status === 'queued'" @click="publish(item.id)" class="h-9 rounded-lg border border-sky-300/50 bg-sky-400/20 px-3 text-xs">立即发布</button>
+            </div>
+          </div>
+        </template>
+        <p x-show="posts.length===0" class="text-sm text-slate-400">暂无稿件</p>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    function opsApp() {
+      return {
+        status: {},
+        posts: [],
+        form: { title: '', content: '', cover_url: '' },
+        async init() {
+          await this.refresh();
+        },
+        async refresh() {
+          const [s, p] = await Promise.all([
+            fetch('/api/xhs/status').then(r => r.json()),
+            fetch('/api/xhs/posts').then(r => r.json())
+          ]);
+          this.status = s;
+          this.posts = p.items || [];
+        },
+        async createPost() {
+          if (!this.form.title || !this.form.content) return;
+          await fetch('/api/xhs/posts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(this.form)
+          });
+          this.form = { title: '', content: '', cover_url: '' };
+          await this.refresh();
+        },
+        async publish(id) {
+          const res = await fetch(`/api/xhs/publish/${id}`, { method: 'POST' });
+          const data = await res.json();
+          if (!data.success && data.error) alert(data.error);
+          await this.refresh();
+        }
+      };
+    }
+  </script>
+</body>
+</html>

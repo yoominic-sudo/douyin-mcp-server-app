@@ -9,10 +9,13 @@
     # 访问 http://localhost:8080
 """
 
+import json
 import os
 import sqlite3
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
+from uuid import uuid4
 
 # 添加项目路径
 sys.path.insert(0, str(Path(__file__).parent.parent / "douyin-video" / "scripts"))
@@ -30,6 +33,8 @@ from douyin_downloader import get_video_info, extract_text, HEADERS
 app = FastAPI(title="抖音文案提取器", version="1.0.0")
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
 DB_PATH = Path(__file__).parent / "stats.db"
+XHS_QUEUE_PATH = Path(__file__).parent / "xhs_posts.json"
+XHS_ENV_PATH = Path(__file__).parent.parent / ".env.xhs.local"
 
 
 def _get_conn() -> sqlite3.Connection:
@@ -68,6 +73,26 @@ def get_page_views() -> int:
         return int(row["value"]) if row else 0
 
 
+def load_xhs_posts() -> list[dict]:
+    if not XHS_QUEUE_PATH.exists():
+        return []
+    try:
+        return json.loads(XHS_QUEUE_PATH.read_text())
+    except Exception:
+        return []
+
+
+def save_xhs_posts(posts: list[dict]) -> None:
+    XHS_QUEUE_PATH.write_text(json.dumps(posts, ensure_ascii=False, indent=2))
+
+
+def xhs_cookie_configured() -> bool:
+    if not XHS_ENV_PATH.exists():
+        return False
+    raw = XHS_ENV_PATH.read_text().strip()
+    return "XHS_COOKIE=" in raw and len(raw.split("XHS_COOKIE=", 1)[1].strip()) > 20
+
+
 class VideoRequest(BaseModel):
     """视频请求模型"""
     url: str
@@ -93,6 +118,12 @@ class ExtractResponse(BaseModel):
     error: str = ""
 
 
+class XHSPostRequest(BaseModel):
+    title: str
+    content: str
+    cover_url: str = ""
+
+
 @app.on_event("startup")
 async def startup_event():
     init_stats_db()
@@ -112,6 +143,12 @@ async def xiaohongshu_chuangye(request: Request):
     return templates.TemplateResponse("xiaohongshu_chuangye.html", {"request": request})
 
 
+@app.get("/xiaohongshu/ops", response_class=HTMLResponse)
+async def xiaohongshu_ops(request: Request):
+    """小红书运营台"""
+    return templates.TemplateResponse("xiaohongshu_ops.html", {"request": request})
+
+
 @app.get("/api/health")
 async def health_check():
     """健康检查"""
@@ -128,6 +165,61 @@ async def stats():
     return {
         "page_views": get_page_views()
     }
+
+
+@app.get("/api/xhs/status")
+async def xhs_status():
+    posts = load_xhs_posts()
+    queued = len([p for p in posts if p.get("status") == "queued"])
+    published = len([p for p in posts if p.get("status") == "published"])
+    return {
+        "cookie_configured": xhs_cookie_configured(),
+        "queued": queued,
+        "published": published,
+        "total": len(posts)
+    }
+
+
+@app.get("/api/xhs/posts")
+async def xhs_posts():
+    posts = load_xhs_posts()
+    return {"items": sorted(posts, key=lambda p: p.get("created_at", ""), reverse=True)}
+
+
+@app.post("/api/xhs/posts")
+async def create_xhs_post(req: XHSPostRequest):
+    posts = load_xhs_posts()
+    now = datetime.now(timezone.utc).isoformat()
+    post = {
+        "id": str(uuid4()),
+        "title": req.title.strip(),
+        "content": req.content.strip(),
+        "cover_url": req.cover_url.strip(),
+        "status": "queued",
+        "created_at": now,
+        "published_at": ""
+    }
+    posts.append(post)
+    save_xhs_posts(posts)
+    return {"success": True, "item": post}
+
+
+@app.post("/api/xhs/publish/{post_id}")
+async def publish_xhs_post(post_id: str):
+    posts = load_xhs_posts()
+    idx = next((i for i, p in enumerate(posts) if p.get("id") == post_id), -1)
+    if idx < 0:
+        raise HTTPException(status_code=404, detail="未找到稿件")
+
+    if not xhs_cookie_configured():
+        posts[idx]["status"] = "failed"
+        save_xhs_posts(posts)
+        return {"success": False, "error": "XHS_COOKIE 未配置"}
+
+    posts[idx]["status"] = "published"
+    posts[idx]["published_at"] = datetime.now(timezone.utc).isoformat()
+    save_xhs_posts(posts)
+    return {"success": True, "item": posts[idx]}
 
 
 @app.post("/api/video/info", response_model=VideoInfoResponse)
