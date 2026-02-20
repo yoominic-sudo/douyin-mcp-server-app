@@ -1,0 +1,43 @@
+<view class="page">
+  <view class="hero">
+    <view class="title-1">2026</view>
+    <view class="title-2">打工型还是创业型</view>
+  </view>
+
+  <view wx:if="{{!started && !finished && !lockState}}" class="card">
+    <view class="h2">首次免费</view>
+    <view class="desc">第 1 次免费测评，后续看广告解锁次数。</view>
+    <view class="quota">免费剩余：{{quota.free_remaining}} 次</view>
+    <view class="quota">广告次数：{{quota.ad_credits}} 次</view>
+    <button class="btn" bindtap="startQuiz">开始测评</button>
+  </view>
+
+  <view wx:if="{{lockState && !started && !finished}}" class="card">
+    <view class="h2">次数已用完</view>
+    <view class="desc">看完激励广告，立即解锁 1 次测评。</view>
+    <button class="btn hot" bindtap="unlockByAd">看广告解锁</button>
+  </view>
+
+  <view wx:if="{{started && !finished}}" class="card">
+    <view class="meta">{{currentQuestion.group}} · {{answered}}/5</view>
+    <view class="h2">{{currentQuestion.title}}</view>
+    <view class="options">
+      <view wx:for="{{currentQuestion.options}}" wx:key="id" data-idx="{{index}}" class="opt" bindtap="selectOption">
+        <text class="opt-id">{{item.id}}</text>
+        <text>{{item.text}}</text>
+      </view>
+    </view>
+  </view>
+
+  <view wx:if="{{finished}}" class="card result">
+    <view class="badge">测评结果</view>
+    <view class="h2">{{result.title}}</view>
+    <view class="desc">{{result.oneLine}}</view>
+    <view class="score-row">
+      <view class="score">打工倾向 {{result.job}}%</view>
+      <view class="score">创业倾向 {{result.biz}}%</view>
+    </view>
+    <view class="route">建议路线：{{result.route}}</view>
+    <button class="btn" bindtap="resetQuiz">再测一次</button>
+  </view>
+</view>

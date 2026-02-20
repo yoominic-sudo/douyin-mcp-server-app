@@ -1,0 +1,13 @@
+{
+  "pages": [
+    "pages/quiz/index"
+  ],
+  "window": {
+    "navigationBarTitleText": "2026 职业测评",
+    "navigationBarBackgroundColor": "#0081D5",
+    "navigationBarTextStyle": "white",
+    "backgroundColor": "#f2f7ff"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json"
+}

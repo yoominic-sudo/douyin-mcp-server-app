@@ -1,0 +1,18 @@
+.page { padding: 24rpx; }
+.hero { color: #fff; padding: 20rpx 10rpx 24rpx; }
+.title-1 { font-size: 72rpx; font-weight: 900; line-height: 1; }
+.title-2 { margin-top: 6rpx; font-size: 56rpx; font-weight: 900; line-height: 1.1; }
+.card { background: rgba(255,255,255,0.96); border-radius: 24rpx; padding: 24rpx; box-shadow: 0 12rpx 36rpx rgba(0,61,120,0.18); }
+.h2 { font-size: 36rpx; font-weight: 700; color: #0f172a; }
+.desc { margin-top: 10rpx; color: #475569; font-size: 28rpx; }
+.meta { color: #0369a1; font-size: 24rpx; }
+.quota { margin-top: 8rpx; color: #0f172a; font-size: 28rpx; }
+.options { margin-top: 16rpx; display: flex; flex-direction: column; gap: 16rpx; }
+.opt { border: 1px solid #bae6fd; border-radius: 18rpx; padding: 18rpx; background: #fff; color: #0f172a; font-size: 30rpx; }
+.opt-id { display: inline-block; width: 40rpx; color: #0369a1; font-weight: 700; }
+.btn { margin-top: 20rpx; background: linear-gradient(90deg,#0ea5e9,#06b6d4); color: #fff; border-radius: 16rpx; font-size: 30rpx; }
+.hot { background: linear-gradient(90deg,#ec4899,#f97316); }
+.result .badge { display: inline-block; padding: 8rpx 16rpx; border-radius: 999rpx; background: #fdf2f8; color: #be185d; font-size: 22rpx; }
+.score-row { display: flex; gap: 12rpx; margin-top: 14rpx; }
+.score { flex: 1; background: #eff6ff; border-radius: 14rpx; padding: 12rpx; color: #0c4a6e; font-size: 26rpx; }
+.route { margin-top: 12rpx; color: #0f172a; font-weight: 700; }
