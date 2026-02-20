@@ -7,7 +7,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
-<body class="min-h-screen bg-slate-950 text-slate-100" x-data="downloaderApp()" x-init="init()">
+<body class="min-h-screen bg-slate-950 text-slate-100" x-data="downloaderApp({{ page_views | default(0) }})" x-init="init()">
   <div class="fixed inset-0 -z-10 bg-[radial-gradient(circle_at_20%_20%,rgba(244,63,94,0.25),transparent_35%),radial-gradient(circle_at_80%_0%,rgba(59,130,246,0.22),transparent_30%),linear-gradient(180deg,#020617_0%,#0f172a_100%)]"></div>
 
   <main class="mx-auto max-w-4xl px-4 py-6 sm:py-10">
@@ -18,6 +18,10 @@
       </div>
       <h1 class="mt-3 text-2xl font-bold tracking-tight text-white sm:text-4xl">抖音无水印下载</h1>
       <p class="mt-2 max-w-2xl text-sm text-slate-300 sm:text-base">粘贴分享文案或链接，一键提取视频并直接下载。手机端优先，操作更快更直观。</p>
+      <div class="mt-3 inline-flex items-center gap-2 rounded-full border border-cyan-300/40 bg-cyan-400/10 px-3 py-1 text-xs text-cyan-100">
+        <span>👀 浏览量</span>
+        <span class="font-semibold" x-text="formatViews(pageViews)"></span>
+      </div>
     </header>
 
     <section class="rounded-2xl border border-white/10 bg-white/10 p-4 shadow-2xl backdrop-blur-xl sm:p-6">
@@ -97,7 +101,7 @@
   </main>
 
   <script>
-    function downloaderApp() {
+    function downloaderApp(initialPageViews = 0) {
       const appBase = window.location.pathname.startsWith('/douyin') ? '/douyin' : '';
       return {
         appBase,
@@ -108,14 +112,16 @@
         videoProxyUrl: '',
         autoReadClipboard: true,
         agreed: false,
+        pageViews: Number(initialPageViews) || 0,
 
-        init() {
+        async init() {
           window.addEventListener('focus', async () => {
             if (this.autoReadClipboard && !this.url) {
               await this.readClipboard(true);
             }
           });
           this.readClipboard(true);
+          await this.fetchStats();
         },
 
         async readClipboard(silent = false) {
@@ -130,6 +136,23 @@
           } catch (e) {
             if (!silent) this.error = '读取剪贴板失败，请检查浏览器权限';
           }
+        },
+
+        async fetchStats() {
+          try {
+            const res = await fetch(`${this.appBase}/api/stats`);
+            if (!res.ok) return;
+            const data = await res.json();
+            if (typeof data.page_views === 'number') {
+              this.pageViews = data.page_views;
+            }
+          } catch (e) {
+          }
+        },
+
+        formatViews(value) {
+          const num = Number(value) || 0;
+          return num.toLocaleString('zh-CN');
         },
 
         reset() {

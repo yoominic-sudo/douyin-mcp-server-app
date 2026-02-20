@@ -10,6 +10,7 @@
 """
 
 import os
+import sqlite3
 import sys
 from pathlib import Path
 
@@ -28,6 +29,43 @@ from douyin_downloader import get_video_info, extract_text, HEADERS
 
 app = FastAPI(title="抖音文案提取器", version="1.0.0")
 templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
+DB_PATH = Path(__file__).parent / "stats.db"
+
+
+def _get_conn() -> sqlite3.Connection:
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def init_stats_db() -> None:
+    with _get_conn() as conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS metrics (
+                key TEXT PRIMARY KEY,
+                value INTEGER NOT NULL DEFAULT 0
+            )
+            """
+        )
+        conn.execute(
+            "INSERT OR IGNORE INTO metrics(key, value) VALUES('page_views', 0)"
+        )
+        conn.commit()
+
+
+def increment_page_views() -> int:
+    with _get_conn() as conn:
+        conn.execute("UPDATE metrics SET value = value + 1 WHERE key = 'page_views'")
+        row = conn.execute("SELECT value FROM metrics WHERE key = 'page_views'").fetchone()
+        conn.commit()
+        return int(row["value"]) if row else 0
+
+
+def get_page_views() -> int:
+    with _get_conn() as conn:
+        row = conn.execute("SELECT value FROM metrics WHERE key = 'page_views'").fetchone()
+        return int(row["value"]) if row else 0
 
 
 class VideoRequest(BaseModel):
@@ -55,10 +93,16 @@ class ExtractResponse(BaseModel):
     error: str = ""
 
 
+@app.on_event("startup")
+async def startup_event():
+    init_stats_db()
+
+
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request):
     """主页面"""
-    return templates.TemplateResponse("index.html", {"request": request})
+    page_views = increment_page_views()
+    return templates.TemplateResponse("index.html", {"request": request, "page_views": page_views})
 
 
 @app.get("/api/health")
@@ -68,6 +112,14 @@ async def health_check():
     return {
         "status": "ok",
         "api_key_configured": bool(api_key)
+    }
+
+
+@app.get("/api/stats")
+async def stats():
+    """站点统计"""
+    return {
+        "page_views": get_page_views()
     }
 
 
