@@ -4,16 +4,16 @@
     <view class="hero-sub">实用工具 · 人格测评</view>
   </view>
 
-  <block wx:for="{{categories}}" wx:key="name">
-    <view class="section-title">{{item.name}}</view>
+  <block wx:for="{{categories}}" wx:key="name" wx:for-item="cat">
+    <view class="section-title">{{cat.name}}</view>
     <view class="grid">
-      <block wx:for="{{item.items}}" wx:key="key">
-        <view class="card" data-key="{{item.key}}" data-title="{{item.title}}" bindtap="openApp">
-          <view class="icon">{{item.icon}}</view>
-          <view class="title">{{item.title}}</view>
-          <view class="desc">{{item.desc}}</view>
-          <view class="quota" wx:if="{{quotaMap[item.key]}}">
-            免费: {{quotaMap[item.key].free_remaining}} · 广告: {{quotaMap[item.key].ad_credits}}
+      <block wx:for="{{cat.items}}" wx:key="key" wx:for-item="appItem">
+        <view class="card" data-key="{{appItem.key}}" data-title="{{appItem.title}}" bindtap="openApp">
+          <view class="icon">{{appItem.icon}}</view>
+          <view class="title">{{appItem.title}}</view>
+          <view class="desc">{{appItem.desc}}</view>
+          <view class="quota" wx:if="{{quotaMap[appItem.key]}}">
+            免费: {{quotaMap[appItem.key].free_remaining}} · 广告: {{quotaMap[appItem.key].ad_credits}}
           </view>
         </view>
       </block>
