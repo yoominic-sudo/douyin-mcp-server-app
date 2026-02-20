@@ -59,7 +59,23 @@
       </div>
     </header>
 
-    <section x-show="!finished" class="glass-card rounded-3xl p-5 text-slate-900 sm:p-7" x-transition>
+    <section x-show="!started && !lockState" class="glass-card rounded-3xl p-5 text-slate-900 sm:p-7" x-transition>
+      <h2 class="text-xl font-bold">首次测评免费</h2>
+      <p class="mt-2 text-sm text-slate-600">本次可免费测 1 次。后续每次通过看广告解锁 1 次测评机会。</p>
+      <div class="mt-4 rounded-xl border border-sky-100 bg-sky-50 p-3 text-sm">
+        <p>免费剩余：<span class="font-bold" x-text="quota.free_remaining || 0"></span> 次</p>
+        <p>广告次数：<span class="font-bold" x-text="quota.ad_credits || 0"></span> 次</p>
+      </div>
+      <button @click="startQuiz" class="mt-5 h-11 rounded-xl bg-gradient-to-r from-sky-500 to-cyan-500 px-5 text-sm font-semibold text-white">开始测评</button>
+    </section>
+
+    <section x-show="lockState" class="glass-card rounded-3xl p-5 text-slate-900 sm:p-7" x-transition>
+      <h2 class="text-xl font-bold">本次次数已用完</h2>
+      <p class="mt-2 text-sm text-slate-600">看一段广告即可再解锁 1 次测评机会。</p>
+      <button @click="watchAdUnlock" class="mt-5 h-11 rounded-xl bg-gradient-to-r from-pink-500 to-orange-400 px-5 text-sm font-semibold text-white">看广告解锁 1 次</button>
+    </section>
+
+    <section x-show="started && !finished" class="glass-card rounded-3xl p-5 text-slate-900 sm:p-7" x-transition>
       <div class="mb-4 flex items-center justify-between text-xs text-slate-600">
         <span>进度 <span x-text="answeredCount"></span>/<span x-text="totalStepsEstimate"></span></span>
         <span x-text="Math.round(progress * 100) + '%'" class="font-semibold text-slate-800"></span>
@@ -153,12 +169,18 @@
 
   <script>
     function quizApp() {
+      const appBase = window.location.pathname.startsWith('/xiaohongshu') ? '/xiaohongshu' : '';
       return {
+        appBase,
         totalStepsEstimate: 6,
         answeredCount: 0,
         progress: 0,
+        started: false,
+        lockState: false,
         finished: false,
         result: null,
+        deviceId: '',
+        quota: { free_remaining: 1, ad_credits: 0, can_play: true },
         currentQuestionId: 'q1',
         currentQuestion: null,
         branch: {
@@ -278,8 +300,45 @@
           }
         },
 
-        init() {
+        async init() {
           this.currentQuestion = this.questions[this.currentQuestionId];
+          this.deviceId = localStorage.getItem('quiz_device_id') || `d_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+          localStorage.setItem('quiz_device_id', this.deviceId);
+          await this.refreshQuota();
+          this.lockState = !this.quota.can_play;
+        },
+
+        async refreshQuota() {
+          const res = await fetch(`${this.appBase}/api/quiz/quota/${this.deviceId}`);
+          this.quota = await res.json();
+        },
+
+        async startQuiz() {
+          const res = await fetch(`${this.appBase}/api/quiz/consume`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ device_id: this.deviceId })
+          });
+          const data = await res.json();
+          this.quota = data.quota || this.quota;
+          if (!data.success) {
+            this.lockState = true;
+            this.started = false;
+            return;
+          }
+          this.started = true;
+          this.lockState = false;
+        },
+
+        async watchAdUnlock() {
+          await new Promise((resolve) => setTimeout(resolve, 3000));
+          const res = await fetch(`${this.appBase}/api/quiz/unlock-ad`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ device_id: this.deviceId })
+          });
+          this.quota = await res.json();
+          this.lockState = !this.quota.can_play;
         },
 
         selectOption(opt) {
@@ -400,15 +459,18 @@
           };
         },
 
-        reset() {
+        async reset() {
           this.answeredCount = 0;
           this.progress = 0;
+          this.started = false;
           this.finished = false;
           this.currentQuestionId = 'q1';
           this.currentQuestion = this.questions[this.currentQuestionId];
           this.branch = { risk: 'mid', role: 'mixed', mode: 'balanced' };
           this.scores = { risk: 0, execution: 0, stability: 0, growth: 0, autonomy: 0, resilience: 0 };
           this.result = null;
+          await this.refreshQuota();
+          this.lockState = !this.quota.can_play;
         }
       };
     }

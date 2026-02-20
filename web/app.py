@@ -56,6 +56,16 @@ def init_stats_db() -> None:
         conn.execute(
             "INSERT OR IGNORE INTO metrics(key, value) VALUES('page_views', 0)"
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS quiz_quota (
+                device_id TEXT PRIMARY KEY,
+                free_used INTEGER NOT NULL DEFAULT 0,
+                ad_credits INTEGER NOT NULL DEFAULT 0,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
         conn.commit()
 
 
@@ -93,6 +103,75 @@ def xhs_cookie_configured() -> bool:
     return "XHS_COOKIE=" in raw and len(raw.split("XHS_COOKIE=", 1)[1].strip()) > 20
 
 
+def _ensure_quiz_row(conn: sqlite3.Connection, device_id: str) -> None:
+    conn.execute(
+        """
+        INSERT OR IGNORE INTO quiz_quota(device_id, free_used, ad_credits, updated_at)
+        VALUES(?, 0, 0, ?)
+        """,
+        (device_id, datetime.now(timezone.utc).isoformat()),
+    )
+
+
+def get_quiz_quota(device_id: str) -> dict:
+    with _get_conn() as conn:
+        _ensure_quiz_row(conn, device_id)
+        row = conn.execute(
+            "SELECT free_used, ad_credits FROM quiz_quota WHERE device_id = ?",
+            (device_id,),
+        ).fetchone()
+        free_used = int(row["free_used"]) if row else 0
+        ad_credits = int(row["ad_credits"]) if row else 0
+        free_remaining = max(0, 1 - free_used)
+        can_play = (free_remaining + ad_credits) > 0
+        return {
+            "device_id": device_id,
+            "free_remaining": free_remaining,
+            "ad_credits": ad_credits,
+            "can_play": can_play,
+        }
+
+
+def unlock_quiz_by_ad(device_id: str) -> dict:
+    with _get_conn() as conn:
+        _ensure_quiz_row(conn, device_id)
+        conn.execute(
+            "UPDATE quiz_quota SET ad_credits = ad_credits + 1, updated_at = ? WHERE device_id = ?",
+            (datetime.now(timezone.utc).isoformat(), device_id),
+        )
+        conn.commit()
+    return get_quiz_quota(device_id)
+
+
+def consume_quiz_attempt(device_id: str) -> tuple[bool, dict]:
+    with _get_conn() as conn:
+        _ensure_quiz_row(conn, device_id)
+        row = conn.execute(
+            "SELECT free_used, ad_credits FROM quiz_quota WHERE device_id = ?",
+            (device_id,),
+        ).fetchone()
+        free_used = int(row["free_used"]) if row else 0
+        ad_credits = int(row["ad_credits"]) if row else 0
+
+        if free_used < 1:
+            conn.execute(
+                "UPDATE quiz_quota SET free_used = 1, updated_at = ? WHERE device_id = ?",
+                (datetime.now(timezone.utc).isoformat(), device_id),
+            )
+            conn.commit()
+            return True, get_quiz_quota(device_id)
+
+        if ad_credits > 0:
+            conn.execute(
+                "UPDATE quiz_quota SET ad_credits = ad_credits - 1, updated_at = ? WHERE device_id = ?",
+                (datetime.now(timezone.utc).isoformat(), device_id),
+            )
+            conn.commit()
+            return True, get_quiz_quota(device_id)
+
+    return False, get_quiz_quota(device_id)
+
+
 class VideoRequest(BaseModel):
     """视频请求模型"""
     url: str
@@ -122,6 +201,10 @@ class XHSPostRequest(BaseModel):
     title: str
     content: str
     cover_url: str = ""
+
+
+class QuizDeviceRequest(BaseModel):
+    device_id: str
 
 
 @app.on_event("startup")
@@ -166,6 +249,22 @@ async def stats():
     return {
         "page_views": get_page_views()
     }
+
+
+@app.get("/api/quiz/quota/{device_id}")
+async def quiz_quota(device_id: str):
+    return get_quiz_quota(device_id)
+
+
+@app.post("/api/quiz/unlock-ad")
+async def quiz_unlock_ad(req: QuizDeviceRequest):
+    return unlock_quiz_by_ad(req.device_id.strip())
+
+
+@app.post("/api/quiz/consume")
+async def quiz_consume(req: QuizDeviceRequest):
+    consumed, quota = consume_quiz_attempt(req.device_id.strip())
+    return {"success": consumed, "quota": quota}
 
 
 @app.get("/api/xhs/status")
