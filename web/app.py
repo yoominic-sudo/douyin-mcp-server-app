@@ -106,6 +106,7 @@ async def index(request: Request):
 
 
 @app.get("/xiaohongshu/chuangye", response_class=HTMLResponse)
+@app.get("/chuangye", response_class=HTMLResponse)
 async def xiaohongshu_chuangye(request: Request):
     """小红书创业倾向测评页面"""
     return templates.TemplateResponse("xiaohongshu_chuangye.html", {"request": request})
