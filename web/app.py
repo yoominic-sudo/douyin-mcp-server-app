@@ -9,6 +9,8 @@
     # 访问 http://localhost:8080
 """
 
+import hashlib
+import hmac
 import json
 import os
 import sqlite3
@@ -63,6 +65,17 @@ def init_stats_db() -> None:
                 free_used INTEGER NOT NULL DEFAULT 0,
                 ad_credits INTEGER NOT NULL DEFAULT 0,
                 updated_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS ad_tickets (
+                ticket_id TEXT PRIMARY KEY,
+                device_id TEXT NOT NULL,
+                signature TEXT NOT NULL,
+                used INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL
             )
             """
         )
@@ -143,6 +156,46 @@ def unlock_quiz_by_ad(device_id: str) -> dict:
     return get_quiz_quota(device_id)
 
 
+def _ad_unlock_secret() -> str:
+    return os.getenv("QUIZ_AD_UNLOCK_SECRET", "")
+
+
+def _sign_ad_ticket(device_id: str, ticket_id: str) -> str:
+    secret = _ad_unlock_secret().encode("utf-8")
+    payload = f"{device_id}:{ticket_id}".encode("utf-8")
+    return hmac.new(secret, payload, hashlib.sha256).hexdigest()
+
+
+def create_ad_ticket(device_id: str) -> dict:
+    if not _ad_unlock_secret():
+        raise HTTPException(status_code=400, detail="QUIZ_AD_UNLOCK_SECRET 未配置")
+    ticket_id = str(uuid4())
+    signature = _sign_ad_ticket(device_id, ticket_id)
+    with _get_conn() as conn:
+        conn.execute(
+            "INSERT INTO ad_tickets(ticket_id, device_id, signature, used, created_at) VALUES(?, ?, ?, 0, ?)",
+            (ticket_id, device_id, signature, datetime.now(timezone.utc).isoformat()),
+        )
+        conn.commit()
+    return {"ticket_id": ticket_id, "signature": signature}
+
+
+def verify_and_consume_ad_ticket(device_id: str, ticket_id: str, signature: str) -> bool:
+    expected = _sign_ad_ticket(device_id, ticket_id)
+    if not hmac.compare_digest(expected, signature):
+        return False
+    with _get_conn() as conn:
+        row = conn.execute(
+            "SELECT used FROM ad_tickets WHERE ticket_id = ? AND device_id = ?",
+            (ticket_id, device_id),
+        ).fetchone()
+        if not row or int(row["used"]) == 1:
+            return False
+        conn.execute("UPDATE ad_tickets SET used = 1 WHERE ticket_id = ?", (ticket_id,))
+        conn.commit()
+    return True
+
+
 def consume_quiz_attempt(device_id: str) -> tuple[bool, dict]:
     with _get_conn() as conn:
         _ensure_quiz_row(conn, device_id)
@@ -207,6 +260,12 @@ class QuizDeviceRequest(BaseModel):
     device_id: str
 
 
+class QuizAdVerifyRequest(BaseModel):
+    device_id: str
+    ticket_id: str
+    signature: str
+
+
 @app.on_event("startup")
 async def startup_event():
     init_stats_db()
@@ -251,14 +310,38 @@ async def stats():
     }
 
 
+@app.get("/api/quiz/ad-config")
+async def quiz_ad_config():
+    return {
+        "enabled": bool(os.getenv("WEAPP_REWARDED_AD_UNIT_ID", "")),
+        "ad_unit_id": os.getenv("WEAPP_REWARDED_AD_UNIT_ID", ""),
+        "demo_mode": os.getenv("QUIZ_AD_DEMO", "false").lower() == "true",
+    }
+
+
 @app.get("/api/quiz/quota/{device_id}")
 async def quiz_quota(device_id: str):
     return get_quiz_quota(device_id)
 
 
+@app.post("/api/quiz/ad-ticket")
+async def quiz_ad_ticket(req: QuizDeviceRequest):
+    ticket = create_ad_ticket(req.device_id.strip())
+    return {"success": True, **ticket}
+
+
 @app.post("/api/quiz/unlock-ad")
 async def quiz_unlock_ad(req: QuizDeviceRequest):
     return unlock_quiz_by_ad(req.device_id.strip())
+
+
+@app.post("/api/quiz/unlock-ad-verify")
+async def quiz_unlock_ad_verify(req: QuizAdVerifyRequest):
+    ok = verify_and_consume_ad_ticket(req.device_id.strip(), req.ticket_id.strip(), req.signature.strip())
+    if not ok:
+        return {"success": False, "error": "广告票据校验失败"}
+    quota = unlock_quiz_by_ad(req.device_id.strip())
+    return {"success": True, "quota": quota}
 
 
 @app.post("/api/quiz/consume")

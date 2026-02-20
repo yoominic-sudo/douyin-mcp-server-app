@@ -181,6 +181,7 @@
         result: null,
         deviceId: '',
         quota: { free_remaining: 1, ad_credits: 0, can_play: true },
+        adConfig: { enabled: false, ad_unit_id: '', demo_mode: false },
         currentQuestionId: 'q1',
         currentQuestion: null,
         branch: {
@@ -305,6 +306,8 @@
           this.deviceId = localStorage.getItem('quiz_device_id') || `d_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
           localStorage.setItem('quiz_device_id', this.deviceId);
           await this.refreshQuota();
+          const adRes = await fetch(`${this.appBase}/api/quiz/ad-config`);
+          this.adConfig = await adRes.json();
           this.lockState = !this.quota.can_play;
         },
 
@@ -331,13 +334,54 @@
         },
 
         async watchAdUnlock() {
-          await new Promise((resolve) => setTimeout(resolve, 3000));
-          const res = await fetch(`${this.appBase}/api/quiz/unlock-ad`, {
+          if (!this.adConfig.enabled && !this.adConfig.demo_mode) {
+            alert('激励广告未配置，请先在服务端配置 WEAPP_REWARDED_AD_UNIT_ID');
+            return;
+          }
+
+          const ticketRes = await fetch(`${this.appBase}/api/quiz/ad-ticket`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ device_id: this.deviceId })
           });
-          this.quota = await res.json();
+          const ticket = await ticketRes.json();
+          if (!ticket.success) {
+            alert(ticket.error || '获取广告票据失败');
+            return;
+          }
+
+          let watched = false;
+          if (window.__WEAPP_AD_BRIDGE__ && typeof window.__WEAPP_AD_BRIDGE__.showRewardedAd === 'function') {
+            watched = await window.__WEAPP_AD_BRIDGE__.showRewardedAd(this.adConfig.ad_unit_id);
+          } else if (this.adConfig.demo_mode) {
+            await new Promise((resolve) => setTimeout(resolve, 2500));
+            watched = true;
+          } else {
+            alert('请在小程序内打开，才能调用真实激励广告');
+            return;
+          }
+
+          if (!watched) {
+            alert('广告未完整观看，暂未解锁');
+            return;
+          }
+
+          const verifyRes = await fetch(`${this.appBase}/api/quiz/unlock-ad-verify`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              device_id: this.deviceId,
+              ticket_id: ticket.ticket_id,
+              signature: ticket.signature
+            })
+          });
+          const verifyData = await verifyRes.json();
+          if (!verifyData.success) {
+            alert(verifyData.error || '广告校验失败');
+            return;
+          }
+
+          this.quota = verifyData.quota;
           this.lockState = !this.quota.can_play;
         },
 
